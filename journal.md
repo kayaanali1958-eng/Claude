@@ -82,3 +82,10 @@
 - Positions: none
 - Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: SPY 758.86 session low not visible on 5m bars (unverified)
 
+### 2026-10-01 11:46 ET · PAPER
+- Condition: news-driven (reused 10:50 report); blackout: none now; next 13:15–13:45
+- Bias: SPY bearish (1m lower highs from 760.86, 759.82; 759.00 not swept), QQQ bearish (lower low 736.60 broke 736.81 higher low; 737.22; 736.27 not swept)
+- Decision: NO TRADE — no sweep of session lows, no displacement/BOS; outside main window
+- Positions: none
+- Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: none
+
