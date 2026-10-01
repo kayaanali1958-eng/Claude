@@ -1,7 +1,7 @@
 {
   "date": "2026-10-01",
   "mode": "paper",
-  "last_run_et": "2026-10-01 11:22",
+  "last_run_et": "2026-10-01 11:27",
   "desk_closed": false,
   "desk_closed_reason": null,
   "recap_written": false,
@@ -35,7 +35,7 @@
   "bias": {
     "SPY": {
       "htf": "bearish",
-      "draw": "bounce peaked 761.17 (11:18), rejected under ONL/PDL; sell-side 758.86, 757.97",
+      "draw": "sideways 760.35-761.17 under ONL/PDL; lower high 761.10; sell-side 758.86, 757.97",
       "levels": {
         "PDH": 769.41,
         "PDL": 762.18,
@@ -50,7 +50,7 @@
     },
     "QQQ": {
       "htf": "bearish",
-      "draw": "wicked PDL to 739.64 (11:20), no 5m close above; sell-side 736.27, 735.34",
+      "draw": "pressing PDL 739.46 (739.42), no 5m close above 739.64; sell-side 736.27, 735.34",
       "levels": {
         "PDH": 745.1,
         "PDL": 739.46,
