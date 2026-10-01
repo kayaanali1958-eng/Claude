@@ -281,3 +281,11 @@
 - Positions: none
 - Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: VWAP estimated
 
+### 2026-10-01 13:49 ET · PAPER
+- Condition: news-driven (13:45 report); blackout: none now; next 14:45–15:15 (Bowman)
+- Bias: SPY neutral (764.54), QQQ neutral (743.81)
+- Regime: SPY news-driven, QQQ news-driven; strategy E only, half size
+- Decision: NO TRADE — no retest: QQQ 3.93 above 739.88 edge (plan limit 739.95), SPY 1.97 above 762.57; scan skipped (quotes far from trigger); plan valid until 14:25
+- Positions: none
+- Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: none
+

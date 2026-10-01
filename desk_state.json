@@ -1,7 +1,7 @@
 {
   "date": "2026-10-01",
   "mode": "paper",
-  "last_run_et": "2026-10-01 13:45",
+  "last_run_et": "2026-10-01 13:49",
   "desk_closed": false,
   "desk_closed_reason": null,
   "recap_written": false,
@@ -119,8 +119,8 @@
     }
   },
   "regime": {
-    "SPY": "news-driven (E only, half size); broke pre-news range 13:20, no retest; 764.92",
-    "QQQ": "news-driven (E only, half size); broke pre-news range 13:15, no retest; 743.97",
+    "SPY": "news-driven (E only); 764.54, 1.97 above retest zone 762.57",
+    "QQQ": "news-driven (E only); 743.81, 3.93 above retest zone 739.88",
     "note": "E entries only until ~14:25; cancel any working order by 14:30"
   },
   "watch_after_1345": {
