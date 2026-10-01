@@ -1,12 +1,12 @@
 {
   "date": "2026-10-01",
   "mode": "paper",
-  "last_run_et": "2026-10-01 12:43",
+  "last_run_et": "2026-10-01 12:48",
   "desk_closed": false,
   "desk_closed_reason": null,
   "recap_written": false,
   "news": {
-    "updated_et": "11:55",
+    "updated_et": "12:48",
     "condition": "news-driven",
     "blackouts": [
       {
@@ -27,10 +27,10 @@
       {
         "start": "15:15",
         "end": "15:45",
-        "event": "Cook + Williams panel 15:30"
+        "event": "Gov. Cook 15:30 (Williams unverified)"
       }
     ],
-    "summary": "Claims 197K (beat). ISM 54.5 vs 55.0 exp, Prices Paid 77.9 (hot), yields up. SPY -0.19%, QQQ -0.04% at 10:51. NFP tomorrow 08:30 ET; expect de-risking into the close. | 11:55: unchanged schedule; SPY -0.31%, QQQ -0.25%; 10y ~5.25%; Brent >$100 (China fuel export halt); AAPL -1.9% main drag."
+    "summary": "Claims 197K (beat). ISM 54.5 vs 55.0 exp, Prices Paid 77.9 (hot), yields up. SPY -0.19%, QQQ -0.04% at 10:51. NFP tomorrow 08:30 ET; expect de-risking into the close. | 11:55: unchanged schedule; SPY -0.31%, QQQ -0.25%; 10y ~5.25%; Brent >$100 (China fuel export halt); AAPL -1.9% main drag. | 12:48: Jefferson 13:30 confirmed (federalreserve.gov); no coupon auction today; 10y eased after 5.34% high; SPY -0.07%, QQQ -0.08%."
   },
   "bias": {
     "SPY": {
@@ -108,8 +108,8 @@
     }
   },
   "regime": {
-    "SPY": "news-driven (Jefferson 13:30); SPY 762.01 hugging PDL 762.18",
-    "QQQ": "news-driven (Jefferson 13:30); QQQ 738.91 under PDL 739.46",
+    "SPY": "news-driven (Jefferson 13:30); SPY 762.17 at PDL 762.18",
+    "QQQ": "news-driven (Jefferson 13:30); QQQ 739.18 under PDL 739.46",
     "note": "from 12:30 news-driven (Jefferson 13:30): E only, after 13:45"
   },
   "watch_after_1345": {
