@@ -313,3 +313,11 @@
 - Positions: none
 - Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: none
 
+### 2026-10-01 14:08 ET · PAPER
+- Condition: news-driven (13:45 report); blackout: none now; next 14:45–15:15 (Bowman), 15:15–15:45 (Cook)
+- Bias: SPY neutral (failed news move, full retrace 765.32→762.20 through 762.57 edge, double top at session high), QQQ neutral (88% retrace 744.67→740.44 on rising sell volume)
+- Regime: SPY news-driven, QQQ news-driven (E only); character changed ≤15 min ago
+- Decision: NO TRADE — E plans CANCELLED: news move failed, E checklist capped at 4/6 (<5/6); blackouts run to 15:45, past the 15:30 cutoff, so no further entries possible today
+- Positions: none
+- Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: SPY 5m 14:00 bar mismatches 1m bars
+

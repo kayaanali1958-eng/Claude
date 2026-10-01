@@ -1,7 +1,7 @@
 {
   "date": "2026-10-01",
   "mode": "paper",
-  "last_run_et": "2026-10-01 14:04",
+  "last_run_et": "2026-10-01 14:08",
   "desk_closed": false,
   "desk_closed_reason": null,
   "recap_written": false,
@@ -60,7 +60,7 @@
         "prev_close": 739.77,
         "ONH": 746.11,
         "ONL": 741.59,
-        "session_high": 744.26,
+        "session_high": 744.67,
         "session_low": 736.27,
         "OR_high": 743.93,
         "OR_low": 741.04,
@@ -80,7 +80,8 @@
     "News: MarketWatch/Investing/FXStreet pages 403; one Yahoo summary showed impossible full-day closes at 10:50, treated as unverified.",
     "11:01 ET: desk switched to $500 paper books (QQQM, TQQQ) mid-session; earlier runs today had no trades.",
     "11:12 SPY 1m gap 759.08 -> 759.40 between 11:10 close and 11:11 open (minor).",
-    "11:41 SPY stored session low 758.86 not in 5m bars (5m low 759.00 at 11:05); treat as unverified 1m print."
+    "11:41 SPY stored session low 758.86 not in 5m bars (5m low 759.00 at 11:05); treat as unverified 1m print.",
+    "14:08 SPY 5m 14:00 bar (vol 93.6k, open 763.42) does not match 1m bars (~212k, open 763.56); 1m 14:01 bar only 2.4k volume."
   ],
   "signals_today": [
     {
@@ -88,6 +89,12 @@
       "symbol": "SPY/QQQ",
       "decision": "no entry",
       "reason": "E breakout valid but no retest; conditional plans set"
+    },
+    {
+      "time_et": "14:08",
+      "symbol": "SPY/QQQ",
+      "decision": "E plans cancelled",
+      "reason": "news move failed: SPY 100% retrace through 762.57, QQQ 88%; E checklist max 4/6 < 5/6"
     }
   ],
   "books": {
@@ -119,12 +126,11 @@
     }
   },
   "regime": {
-    "SPY": "news-driven (E only); 763.29, 0.72 above retest zone 762.57",
-    "QQQ": "news-driven (E only); 741.99, 2.11 above retest zone 739.88",
-    "note": "E entries only until ~14:25; cancel any working order by 14:30"
+    "SPY": "news-driven; failed news move: full retrace 765.32 -> 762.20, double top at session high; at PDL/prev close cluster",
+    "QQQ": "news-driven; 88% retrace 744.67 -> 740.44 on rising sell volume",
+    "note": "E dropped. No entries possible rest of day: E window ends 14:25, blackouts 14:45-15:45 run past the 15:30 cutoff."
   },
   "watch_after_1345": {
-    "SPY": "signal only: E long limit 762.65 stop 761.90 TP1 764.93 TP2 765.33 if retest of 762.57 holds before 14:25",
-    "QQQ": "E long limit 739.95 stop 738.90 TP1 742.93 TP2 744.26 if retest of 739.88 holds (5m close back above, none below) before 14:25; invalid on 5m close <739.46 or PDH 745.10 tagged first"
+    "status": "cancelled 14:08 - news move failed (SPY full retrace, QQQ 88%); E capped at 4/6"
   }
 }
