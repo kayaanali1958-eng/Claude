@@ -1,7 +1,7 @@
 {
   "date": "2026-10-01",
   "mode": "paper",
-  "last_run_et": "2026-10-01 13:30",
+  "last_run_et": "2026-10-01 13:35",
   "desk_closed": false,
   "desk_closed_reason": null,
   "recap_written": false,
@@ -108,8 +108,8 @@
     }
   },
   "regime": {
-    "SPY": "news-driven, IN BLACKOUT 13:15-13:45; SPY 764.81 (+0.29%), strong rally into Jefferson",
-    "QQQ": "news-driven, IN BLACKOUT 13:15-13:45; QQQ 743.97 (+0.57%), at session high 743.93",
+    "SPY": "news-driven, IN BLACKOUT 13:15-13:45; SPY 764.46, holding the rally",
+    "QQQ": "news-driven, IN BLACKOUT 13:15-13:45; QQQ 743.62, holding near session high 743.93",
     "note": "from 12:30 news-driven (Jefferson 13:30): E only, after 13:45"
   },
   "watch_after_1345": {
