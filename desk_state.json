@@ -1,7 +1,7 @@
 {
   "date": "2026-10-01",
   "mode": "paper",
-  "last_run_et": "2026-10-01 14:51",
+  "last_run_et": "2026-10-01 14:56",
   "desk_closed": false,
   "desk_closed_reason": null,
   "recap_written": false,
@@ -126,8 +126,8 @@
     }
   },
   "regime": {
-    "SPY": "news-driven, IN BLACKOUT 14:45-15:45; 764.32",
-    "QQQ": "news-driven, IN BLACKOUT 14:45-15:45; 743.02",
+    "SPY": "news-driven, IN BLACKOUT 14:45-15:45; 764.66",
+    "QQQ": "news-driven, IN BLACKOUT 14:45-15:45; 743.40",
     "note": "E dropped. No entries possible rest of day: E window ends 14:25, blackouts 14:45-15:45 run past the 15:30 cutoff."
   },
   "watch_after_1345": {
