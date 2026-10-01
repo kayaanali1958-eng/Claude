@@ -193,3 +193,11 @@
 - Positions: none
 - Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: none
 
+### 2026-10-01 12:57 ET · PAPER
+- Condition: news-driven (12:48 report); blackout: none now; next 13:15–13:45 (Jefferson 13:30)
+- Bias: SPY bearish (760.51, falling after PDL 762.18 rejection), QQQ bearish (737.20, falling toward 736.27)
+- Regime: SPY news-driven, QQQ news-driven; strategy E only, after 13:45; scan skipped, quotes fresh
+- Decision: NO TRADE — waiting for post-blackout
+- Positions: none
+- Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: none
+
