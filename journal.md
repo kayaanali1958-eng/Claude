@@ -145,3 +145,11 @@
 - Positions: none
 - Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: thin QQQ volume
 
+### 2026-10-01 12:29 ET · PAPER (first run on strategy playbook)
+- Condition: news-driven (11:55 report); blackout: none now; next 13:15–13:45 (Jefferson 13:30)
+- Bias: SPY bearish (weak), QQQ bearish
+- Regime: SPY unclear (5m higher highs/lows since 11:10, at VWAP 761.48, under ONL/PDL; structure flipped <25 min ago), QQQ unclear (wedge 736.6–738.9 under down-sloping VWAP 739.45); from 12:30 both news-driven, strategy E only, after 13:45
+- Decision: NO TRADE — unclear regime; no allowed strategy; C window closed; too close to blackout. Risk-manager not called
+- Positions: none
+- Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: VWAP from 5m bars (±0.05)
+

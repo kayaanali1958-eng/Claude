@@ -1,7 +1,7 @@
 {
   "date": "2026-10-01",
   "mode": "paper",
-  "last_run_et": "2026-10-01 12:24",
+  "last_run_et": "2026-10-01 12:29",
   "desk_closed": false,
   "desk_closed_reason": null,
   "recap_written": false,
@@ -45,7 +45,8 @@
         "session_high": 765.33,
         "session_low": 758.86,
         "OR_high": 765.26,
-        "OR_low": 763.39
+        "OR_low": 763.39,
+        "VWAP": 761.48
       }
     },
     "QQQ": {
@@ -61,7 +62,8 @@
         "session_low": 736.27,
         "OR_high": 743.93,
         "OR_low": 741.04,
-        "structure_kill": 736.91
+        "structure_kill": 736.91,
+        "VWAP": 739.45
       }
     }
   },
@@ -104,5 +106,14 @@
       "closed_trades": [],
       "desk_closed": false
     }
+  },
+  "regime": {
+    "SPY": "unclear (5m HH/HL since 11:10, at VWAP 761.48, under ONL/PDL; flipped <25 min ago)",
+    "QQQ": "unclear (wedge 736.6-738.9 under VWAP 739.45, VWAP sloping down)",
+    "note": "from 12:30 news-driven (Jefferson 13:30): E only, after 13:45"
+  },
+  "watch_after_1345": {
+    "SPY": "5m close >762.18 holding = bullish (763.39, 765.26); fail + 5m close <760.81 = trend down (759.25/759.00)",
+    "QQQ": "5m close <737.44 then <736.27 = trend down, B short (PSQ/SQQQ) on pullback to 739.45; 5m close >739.46+VWAP holding = bullish; E uses 12:30-13:15 range"
   }
 }
