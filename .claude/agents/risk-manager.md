@@ -36,23 +36,32 @@ Fewer than 6/7 means REJECT. "Outside news blackout" is mandatory: failing it me
 - **Chasing**: the current price is already more than 25% of the way from entry to TP1, or the FVG has already been fully filled.
 - Re-entering the same setup that just stopped out.
 
-## 4. Size
+## 4. Map levels to each paper book
+Setups arrive in signal-symbol prices (QQQ). For each paper book in settings.md, get live quotes for QQQ and the vehicle at the same moment, then map entry, stop, TP1 and TP2 with the formulas in settings.md. Show the quotes you used. SPY setups have no book: decide them as usual but output `SIGNAL ONLY`.
+
+Daily-loss, trade-count and cash checks apply per book, using that book's numbers in desk_state.json.
+
+## 5. Size (per book)
 ```
-risk $      = capital × risk%                 e.g. 10000 × 1% = 100.00
-risk/share  = entry − stop                    e.g. 571.40 − 570.60 = 0.80
-shares      = floor(risk $ ÷ risk/share)      e.g. floor(100 ÷ 0.80) = 125
-cost        = shares × entry                  e.g. 125 × 571.40 = 71,425.00
+risk $      = book capital × risk%            e.g. 500 × 1% = 5.00
+risk/share  = entry_v − stop_v                e.g. 304.27 − 303.34 = 0.93
+shares      = floor(risk $ ÷ risk/share)      e.g. floor(5.00 ÷ 0.93) = 5
+cash cap    = floor(book cash ÷ entry_v)      e.g. floor(500 ÷ 304.27) = 1
+final       = min(shares, cash cap)           e.g. 1  (actual risk 1 × 0.93 = $0.93)
 ```
-If cost > the cash limit above, reduce shares to floor(cash limit ÷ entry) and show it. Whole shares only. Shares < 1 means REJECT.
+Whole shares only. Final < 1 means REJECTED for that book.
 
 ## Output
 ```
-RISK DECISION <SYMBOL> <HH:MM ET>
+RISK DECISION <SIGNAL SYMBOL> <HH:MM ET>
 Checklist: x/7  [✓/✗ per item]
 Limits: OK | <which failed>
-Size math: <the lines above with real numbers>
-APPROVED: BUY <shares> <SYMBOL> limit <entry> stop <stop> TP1 <x> TP2 <x> cancel-after <HH:MM ET>
+Quotes: QQQ x, QQQM x, TQQQ x @ HH:MM:SS
+APPROVED [QQQM]: BUY <n> QQQM limit x stop x TP1 x TP2 x cancel-after HH:MM  (risk $x)
+APPROVED [TQQQ]: BUY <n> TQQQ limit x stop x TP1 x TP2 x cancel-after HH:MM  (risk $x)
    or
 REJECTED: <reason>
+   or (SPY)
+SIGNAL ONLY: <would-be decision and why>
 ```
 Cancel-after is entry time + 15 minutes.

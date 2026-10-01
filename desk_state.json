@@ -9,10 +9,26 @@
     "updated_et": "10:50",
     "condition": "news-driven",
     "blackouts": [
-      {"start": "09:45", "end": "10:15", "event": "ISM Manufacturing + Waller (passed)"},
-      {"start": "13:15", "end": "13:45", "event": "Fed Vice Chair Jefferson 13:30"},
-      {"start": "14:45", "end": "15:15", "event": "Fed Vice Chair Bowman 15:00"},
-      {"start": "15:15", "end": "15:45", "event": "Cook + Williams panel 15:30"}
+      {
+        "start": "09:45",
+        "end": "10:15",
+        "event": "ISM Manufacturing + Waller (passed)"
+      },
+      {
+        "start": "13:15",
+        "end": "13:45",
+        "event": "Fed Vice Chair Jefferson 13:30"
+      },
+      {
+        "start": "14:45",
+        "end": "15:15",
+        "event": "Fed Vice Chair Bowman 15:00"
+      },
+      {
+        "start": "15:15",
+        "end": "15:45",
+        "event": "Cook + Williams panel 15:30"
+      }
     ],
     "summary": "Claims 197K (beat). ISM 54.5 vs 55.0 exp, Prices Paid 77.9 (hot), yields up. SPY -0.19%, QQQ -0.04% at 10:51. NFP tomorrow 08:30 ET; expect de-risking into the close."
   },
@@ -20,24 +36,71 @@
     "SPY": {
       "htf": "bearish",
       "draw": "sell-side equal lows 759.72/759.80, then 757.97",
-      "levels": {"PDH": 769.41, "PDL": 762.18, "prev_close": 762.63, "ONH": 766.08, "ONL": 761.93, "session_high": 765.33, "session_low": 759.72, "OR_high": 765.26, "OR_low": 763.39}
+      "levels": {
+        "PDH": 769.41,
+        "PDL": 762.18,
+        "prev_close": 762.63,
+        "ONH": 766.08,
+        "ONL": 761.93,
+        "session_high": 765.33,
+        "session_low": 759.72,
+        "OR_high": 765.26,
+        "OR_low": 763.39
+      }
     },
     "QQQ": {
       "htf": "neutral",
       "draw": "sell-side 735.34 then 731.63; buy-side 740.86, 743.93, 745.08",
-      "levels": {"PDH": 745.10, "PDL": 739.46, "prev_close": 739.77, "ONH": 746.11, "ONL": 741.59, "session_high": 743.93, "session_low": 736.91, "OR_high": 743.93, "OR_low": 741.04, "structure_kill": 736.91}
+      "levels": {
+        "PDH": 745.1,
+        "PDL": 739.46,
+        "prev_close": 739.77,
+        "ONH": 746.11,
+        "ONL": 741.59,
+        "session_high": 743.93,
+        "session_low": 736.91,
+        "OR_high": 743.93,
+        "OR_low": 741.04,
+        "structure_kill": 736.91
+      }
     }
   },
-  "pnl": {"realized": 0, "open": 0, "total": 0},
   "trades_today": 0,
   "day_trades_5d": [],
-  "working_orders": [],
-  "open_positions": [],
-  "closed_trades": [],
   "errors": [
     "Hourly bars: no 09:30-10:00 bar any session, placeholder-like volumes, none returned for today. HTF used daily/5m/1m only.",
     "SPY 5m 09:50 bar suspect (38k volume, 1.10 gap from prior close).",
     "Premarket outlier prints at 04:00 ET (SPY 767.87, QQQ 750.58) and QQQ 08:05 (739.216) excluded from ONH/ONL.",
-    "News: MarketWatch/Investing/FXStreet pages 403; one Yahoo summary showed impossible full-day closes at 10:50, treated as unverified."
-  ]
+    "News: MarketWatch/Investing/FXStreet pages 403; one Yahoo summary showed impossible full-day closes at 10:50, treated as unverified.",
+    "11:01 ET: desk switched to $500 paper books (QQQM, TQQQ) mid-session; earlier runs today had no trades."
+  ],
+  "signals_today": [],
+  "books": {
+    "QQQM": {
+      "start_cash": 500,
+      "cash": 500,
+      "pnl": {
+        "realized": 0,
+        "open": 0,
+        "total": 0
+      },
+      "working_orders": [],
+      "open_positions": [],
+      "closed_trades": [],
+      "desk_closed": false
+    },
+    "TQQQ": {
+      "start_cash": 500,
+      "cash": 500,
+      "pnl": {
+        "realized": 0,
+        "open": 0,
+        "total": 0
+      },
+      "working_orders": [],
+      "open_positions": [],
+      "closed_trades": [],
+      "desk_closed": false
+    }
+  }
 }

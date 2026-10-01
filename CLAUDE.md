@@ -43,15 +43,18 @@ Give each subagent what it needs in the prompt: current ET time, MODE, and the r
   "recap_written": false,
   "news": {"updated_et": "HH:MM", "condition": "trending|choppy|news-driven", "blackouts": [{"start": "HH:MM", "end": "HH:MM", "event": ""}], "summary": ""},
   "bias": {"SPY": {"htf": "bullish|bearish|neutral", "draw": null, "levels": {}}, "QQQ": {"htf": "", "draw": null, "levels": {}}},
-  "pnl": {"realized": 0, "open": 0, "total": 0},
   "trades_today": 0,
+  "signals_today": [],
   "day_trades_5d": [],
-  "working_orders": [],
-  "open_positions": [],
-  "closed_trades": [],
+  "books": {
+    "QQQM": {"start_cash": 500, "cash": 500, "pnl": {"realized": 0, "open": 0, "total": 0}, "working_orders": [], "open_positions": [], "closed_trades": [], "desk_closed": false},
+    "TQQQ": {"start_cash": 500, "cash": 500, "pnl": {"realized": 0, "open": 0, "total": 0}, "working_orders": [], "open_positions": [], "closed_trades": [], "desk_closed": false}
+  },
   "errors": []
 }
 ```
+- Each paper book carries its own cash between days: on a new day, set `start_cash` to the previous day's ending `cash` and reset that book's P&L and trade lists. The daily-loss check (step 2) runs per book; one book hitting its limit closes only that book.
+- `signals_today[]`: `{time_et, symbol, decision, reason}` for every setup the technical analyst returned, including SPY signal-only ones.
 - `working_orders[]`: `{symbol, side, qty, limit, order_id|null, placed_et, cancel_after_et, stop, tp1, tp2}`
 - `open_positions[]`: `{symbol, qty, entry, stop, tp1, tp2, tp1_done, opened_et, stop_order_id|null}`
 - `closed_trades[]`: `{symbol, qty, entry, exit, r_multiple, pnl, opened_et, closed_et, reason}`

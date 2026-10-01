@@ -16,14 +16,15 @@ Read `settings.md` (MODE) and `desk_state.json` first. Trade only the account in
 - Never hold past 3:55 PM ET.
 
 ## PAPER mode (MODE: paper)
-Place nothing. Call no order tools. Simulate using 1-minute bars since the last run (get_equity_historicals, interval `minute`):
+Place nothing. Call no order tools. Each paper book (QQQM, TQQQ) is separate: its own cash, orders, positions and P&L. Simulate each book on its own vehicle's 1-minute bars since the last run (get_equity_historicals, interval `minute`), using the mapped levels in its APPROVED line:
 - Entry limit fills if any bar's low ≤ limit. Fill price = limit.
 - After fill, the stop is hit if any later bar's low ≤ stop. Fill = stop (or the bar's open if it gapped below).
 - TP1 hit if a bar's high ≥ TP1: sell half (round down), move the stop to entry (breakeven).
 - TP2 hit if a bar's high ≥ TP2: sell the rest.
 - If one bar touches both the stop and a target, assume the stop hit first.
 - Unfilled entry after 15 minutes, or setup invalidated: cancel.
-Return each event as `PAPER <action> <qty> <SYMBOL> @ <price> <HH:MM ET>`.
+- A 1-share position can't sell half at TP1: keep the share, move the stop to breakeven, and exit at TP2 or the trailing stop.
+Return each event as `PAPER [<book>] <action> <qty> <SYMBOL> @ <price> <HH:MM ET>`, with realized P&L on exits.
 
 ## LIVE mode (MODE: live)
 ### New entry

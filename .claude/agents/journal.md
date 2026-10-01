@@ -14,13 +14,14 @@ Append one short entry to the end of `journal.md` (never rewrite older entries):
 - Bias: SPY <x>, QQQ <x>
 - Decision: NO TRADE — <reason> | APPROVED <summary> | REJECTED <reason> | MANAGED <action>
 - Positions: <none or symbol qty entry stop TP1 TP2>
-- Day P&L: $x · trades x/x · issues: <none or what failed>
+- Books: QQQM $x (day ±$x) · TQQQ $x (day ±$x) · trades x/x · issues: <none or what failed>
 ```
 Five or six lines. No commentary beyond that.
 
 ## Daily recap (first run after 4:00 PM ET, once per day)
 Append under `## Recap YYYY-MM-DD`:
 - Each trade: plan (entry, stop, TP1, TP2, size) vs. result (fills, exit, R multiple); rules followed or broken.
-- Win rate, average R, net P&L, trades taken, max drawdown in the day.
+- Per paper book (QQQM, TQQQ): win rate, average R, net P&L, trades taken, max drawdown, and running balance since the $500 start. Then one line comparing the books.
+- SPY signal-only setups: list them and what they would have done.
 - One lesson, one sentence.
 If there were no trades, say so and give the lesson anyway (for example, what the desk correctly sat out).
