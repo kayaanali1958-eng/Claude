@@ -19,3 +19,10 @@
 - Positions: none
 - Day P&L: $0 · trades 0/3 · issues: hourly bars unreliable (no 9:30–10:00 bar, none today), suspect SPY 9:50 5m bar, premarket outlier prints excluded, some news sites 403
 
+### 2026-10-01 11:03 ET · PAPER (first run with $500 QQQM/TQQQ paper books)
+- Condition: news-driven (reused 10:50 report); blackout: none now; next 13:15–13:45
+- Bias: SPY bearish (took 759.72 equal lows 11:01, low 759.36, no reclaim; draw 757.97), QQQ neutral (lost PDL 739.46 again, 737.67, drifting toward 736.91 structure kill)
+- Decision: NO TRADE — no setup on either; past main window. Risk-manager/execution-trader not called
+- Positions: none
+- Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: none this run
+

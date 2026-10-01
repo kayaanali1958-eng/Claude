@@ -1,7 +1,7 @@
 {
   "date": "2026-10-01",
   "mode": "paper",
-  "last_run_et": "2026-10-01 10:52",
+  "last_run_et": "2026-10-01 11:03",
   "desk_closed": false,
   "desk_closed_reason": null,
   "recap_written": false,
@@ -35,7 +35,7 @@
   "bias": {
     "SPY": {
       "htf": "bearish",
-      "draw": "sell-side equal lows 759.72/759.80, then 757.97",
+      "draw": "759.72/759.80 taken 11:01 (low 759.36, not reclaimed); next 757.97",
       "levels": {
         "PDH": 769.41,
         "PDL": 762.18,
@@ -43,14 +43,14 @@
         "ONH": 766.08,
         "ONL": 761.93,
         "session_high": 765.33,
-        "session_low": 759.72,
+        "session_low": 759.36,
         "OR_high": 765.26,
         "OR_low": 763.39
       }
     },
     "QQQ": {
       "htf": "neutral",
-      "draw": "sell-side 735.34 then 731.63; buy-side 740.86, 743.93, 745.08",
+      "draw": "sell-side 736.91, 735.34, 731.63; buy-side 740.86, 743.93, 745.08",
       "levels": {
         "PDH": 745.1,
         "PDL": 739.46,
