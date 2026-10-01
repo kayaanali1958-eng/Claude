@@ -1,0 +1,40 @@
+{
+  "date": "2026-09-30",
+  "mode": "paper",
+  "last_run_et": "2026-09-30 23:30",
+  "desk_closed": false,
+  "desk_closed_reason": null,
+  "recap_written": true,
+  "news": {
+    "updated_et": "23:30",
+    "condition": "choppy",
+    "blackouts": [],
+    "next_day_blackouts": [
+      {"date": "2026-10-01", "start": "09:45", "end": "10:15", "event": "ISM Manufacturing PMI 10:00 ET"}
+    ],
+    "summary": "Wed: SPY -0.2%, QQQ +0.2%, S&P down for September. PCE cooled more than expected. Thu: jobless claims 8:30 ET (premarket), ISM Manufacturing 10:00 ET. Fri: September jobs report 8:30 ET. Overnight SPY 765.55 (+0.4%), QQQ 744.28 (+0.6%)."
+  },
+  "bias": {
+    "SPY": {
+      "htf": "neutral",
+      "draw": "sell-side at 762.20-762.35 equal lows; buy-side 769.4-769.5 then 775.14",
+      "levels": {"PDH": 769.41, "PDL": 762.20, "prev_close": 762.63, "range_high": 775.14, "range_low": 749.60, "equilibrium": 762.37, "ON_last": 765.55}
+    },
+    "QQQ": {
+      "htf": "neutral",
+      "draw": "sell-side below 739.46 / 735.34; buy-side 745.08 then 748.35",
+      "levels": {"PDH": 745.08, "PDL": 739.46, "prev_close": 739.77, "range_high": 748.35, "range_low": 700.00, "equilibrium": 724.18, "ON_last": 744.28}
+    }
+  },
+  "pnl": {"realized": 0, "open": 0, "total": 0},
+  "trades_today": 0,
+  "day_trades_5d": [],
+  "working_orders": [],
+  "open_positions": [],
+  "closed_trades": [],
+  "errors": [
+    "2026-09-30 daily bar for SPY and QQQ came back interpolated (placeholder); used hourly bars and the official close from quotes instead.",
+    "Hourly bars miss 09:30-10:00 ET, so PDH/PDL exclude the first 30 minutes; verify with 5-minute bars before trading.",
+    "One calendar source listed claims/ISM an hour early (7:30/9:00); two others confirm 8:30/10:00 ET."
+  ]
+}
