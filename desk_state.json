@@ -1,7 +1,7 @@
 {
   "date": "2026-10-01",
   "mode": "paper",
-  "last_run_et": "2026-10-01 14:56",
+  "last_run_et": "2026-10-01 15:44",
   "desk_closed": false,
   "desk_closed_reason": null,
   "recap_written": false,
@@ -81,7 +81,8 @@
     "11:01 ET: desk switched to $500 paper books (QQQM, TQQQ) mid-session; earlier runs today had no trades.",
     "11:12 SPY 1m gap 759.08 -> 759.40 between 11:10 close and 11:11 open (minor).",
     "11:41 SPY stored session low 758.86 not in 5m bars (5m low 759.00 at 11:05); treat as unverified 1m print.",
-    "14:08 SPY 5m 14:00 bar (vol 93.6k, open 763.42) does not match 1m bars (~212k, open 763.56); 1m 14:01 bar only 2.4k volume."
+    "14:08 SPY 5m 14:00 bar (vol 93.6k, open 763.42) does not match 1m bars (~212k, open 763.56); 1m 14:01 bar only 2.4k volume.",
+    "15:01-15:40 ET: desk runs missed (API session rate limit). No positions were open, so nothing went unmanaged."
   ],
   "signals_today": [
     {
@@ -126,8 +127,8 @@
     }
   },
   "regime": {
-    "SPY": "news-driven, IN BLACKOUT 14:45-15:45; 764.66",
-    "QQQ": "news-driven, IN BLACKOUT 14:45-15:45; 743.40",
+    "SPY": "news-driven, blackout to 15:45; past 15:30 entry cutoff; 764.70",
+    "QQQ": "news-driven, blackout to 15:45; past 15:30 entry cutoff; 743.01",
     "note": "E dropped. No entries possible rest of day: E window ends 14:25, blackouts 14:45-15:45 run past the 15:30 cutoff."
   },
   "watch_after_1345": {
