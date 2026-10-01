@@ -40,3 +40,10 @@
 - Positions: none
 - Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: minor SPY 1m gap 11:10→11:11
 
+### 2026-10-01 11:17 ET · PAPER
+- Condition: news-driven (reused 10:50 report); blackout: none now; next 13:15–13:45
+- Bias: SPY bearish (1m CHoCH bounce 758.86→761.03 into PDL/ONL resistance 761.93–762.18), QQQ bearish (1m BOS off 736.27, 739.22 testing PDL 739.46 from below; FVGs unfilled, 2:1 target would sit against bias)
+- Decision: NO TRADE — 1m reversals on both, but HTF bias still bearish below PDL; outside main window; entries not retraced
+- Positions: none
+- Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: SPY 1m bars 11:11–11:12 low volume
+

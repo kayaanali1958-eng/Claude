@@ -1,7 +1,7 @@
 {
   "date": "2026-10-01",
   "mode": "paper",
-  "last_run_et": "2026-10-01 11:12",
+  "last_run_et": "2026-10-01 11:17",
   "desk_closed": false,
   "desk_closed_reason": null,
   "recap_written": false,
@@ -35,7 +35,7 @@
   "bias": {
     "SPY": {
       "htf": "bearish",
-      "draw": "759.72/759.80 taken 11:01 (low 759.36, not reclaimed); next 757.97",
+      "draw": "bounce from 758.86 into ONL/PDL 761.93-762.18 resistance; sell-side 757.97 unswept",
       "levels": {
         "PDH": 769.41,
         "PDL": 762.18,
@@ -50,7 +50,7 @@
     },
     "QQQ": {
       "htf": "bearish",
-      "draw": "structure kill 736.91 broken 11:08; sell-side 735.34, 731.63",
+      "draw": "1m BOS off 736.27, testing PDL 739.46 from below; needs 5m close above 739.46-739.77 to turn; sell-side 735.34",
       "levels": {
         "PDH": 745.1,
         "PDL": 739.46,
