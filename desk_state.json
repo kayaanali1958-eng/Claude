@@ -1,7 +1,7 @@
 {
   "date": "2026-10-01",
   "mode": "paper",
-  "last_run_et": "2026-10-01 15:44",
+  "last_run_et": "2026-10-01 15:48",
   "desk_closed": false,
   "desk_closed_reason": null,
   "recap_written": false,
@@ -129,7 +129,7 @@
   "regime": {
     "SPY": "news-driven, blackout to 15:45; past 15:30 entry cutoff; 764.70",
     "QQQ": "news-driven, blackout to 15:45; past 15:30 entry cutoff; 743.01",
-    "note": "E dropped. No entries possible rest of day: E window ends 14:25, blackouts 14:45-15:45 run past the 15:30 cutoff."
+    "note": "Past 15:30 cutoff; blackouts over 15:45. Flatten check 15:55, recap after 16:00."
   },
   "watch_after_1345": {
     "status": "cancelled 14:08 - news move failed (SPY full retrace, QQQ 88%); E capped at 4/6"
