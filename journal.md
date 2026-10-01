@@ -47,3 +47,10 @@
 - Positions: none
 - Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: SPY 1m bars 11:11–11:12 low volume
 
+### 2026-10-01 11:22 ET · PAPER
+- Condition: news-driven (reused 10:50 report); blackout: none now; next 13:15–13:45
+- Bias: SPY bearish (bounce peaked 761.17, rejected under ONL/PDL 761.93–762.18; 760.85), QQQ bearish (wicked PDL to 739.64 at 11:20, no 5m close above; 738.87)
+- Decision: NO TRADE — both rejected at PDL from below, bias bearish, outside main window
+- Positions: none
+- Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: none
+
