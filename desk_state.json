@@ -1,10 +1,10 @@
 {
   "date": "2026-10-01",
   "mode": "paper",
-  "last_run_et": "2026-10-01 15:58",
+  "last_run_et": "2026-10-01 16:03",
   "desk_closed": false,
   "desk_closed_reason": null,
-  "recap_written": false,
+  "recap_written": true,
   "news": {
     "updated_et": "13:45",
     "condition": "news-driven",

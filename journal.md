@@ -433,3 +433,15 @@
 - Positions: none
 - Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: none
 
+## Recap 2026-10-01
+- Trades: none in either book. No plans reached execution, so there was nothing to compare against plan.
+- Day: bearish morning (lost PDL; lows SPY 759.00 / QQQ 736.27). News-driven all day: hot ISM prices, 10y ~5.3%, oil >$100. Jefferson's "no urgency" rally ran 13:16–13:47 and then faded. Blackouts covered 14:45–15:45. SPY closed ~+0.27% (~764.7), QQQ ~+0.44% (~743.0).
+- Strategies A–D: 0 signals taken. The playbook was added at 12:29; before that the desk ran the original long-only sweep model. 0 trades, net 0R.
+- Strategy E: 1 signal at 13:45 (SPY/QQQ broke out above pre-news highs 762.57/739.88), but price never retested. The conditional limit plans (QQQ 739.95 / stop 738.90 / TP1 742.93 / TP2 744.26) were cancelled at 14:08 when the news move failed (SPY 100% retrace, QQQ 88%). 0 trades, net 0R.
+- QQQM book: 0 trades · win rate n/a · avg R n/a · net P&L $0 · max drawdown $0 · balance $500.00 ($0 since $500 start).
+- TQQQ book: 0 trades · win rate n/a · avg R n/a · net P&L $0 · max drawdown $0 · balance $500.00 ($0 since $500 start).
+- Books compared: identical; both flat, so the leverage difference was never tested.
+- SPY signal-only: E breakout at 13:20 above 762.57. It would not have filled at 762.65 before failing through the edge, so no trade.
+- Rules: followed (no chasing, blackouts respected, conditional plan cancelled when the move failed). Process issues: runs 15:01–15:40 missed (API rate limit, no exposure). Data issues: no hourly bars for the first 30 min, SPY 5m/1m mismatch at 14:00, unverified 758.86 print.
+- Lesson: the desk was right to sit out a choppy, headline-driven day; the one valid setup (post-news breakout) never retested and then failed, and the retest rule kept the books out of it.
+
