@@ -385,3 +385,11 @@
 - Positions: none
 - Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: none
 
+### 2026-10-01 14:51 ET · PAPER
+- Condition: news-driven (13:45 report); blackout: NOW 14:45–15:15 (Bowman 15:00), then 15:15–15:45 (Cook)
+- Bias: SPY neutral (764.32), QQQ neutral (743.02)
+- Regime: SPY news-driven, QQQ news-driven; no allowed strategy
+- Decision: NO TRADE — inside blackout; no more entries possible today
+- Positions: none
+- Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: none
+
