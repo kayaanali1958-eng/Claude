@@ -1,12 +1,12 @@
 {
   "date": "2026-10-01",
   "mode": "paper",
-  "last_run_et": "2026-10-01 13:40",
+  "last_run_et": "2026-10-01 13:45",
   "desk_closed": false,
   "desk_closed_reason": null,
   "recap_written": false,
   "news": {
-    "updated_et": "12:48",
+    "updated_et": "13:45",
     "condition": "news-driven",
     "blackouts": [
       {
@@ -30,11 +30,11 @@
         "event": "Gov. Cook 15:30 (Williams unverified)"
       }
     ],
-    "summary": "Claims 197K (beat). ISM 54.5 vs 55.0 exp, Prices Paid 77.9 (hot), yields up. SPY -0.19%, QQQ -0.04% at 10:51. NFP tomorrow 08:30 ET; expect de-risking into the close. | 11:55: unchanged schedule; SPY -0.31%, QQQ -0.25%; 10y ~5.25%; Brent >$100 (China fuel export halt); AAPL -1.9% main drag. | 12:48: Jefferson 13:30 confirmed (federalreserve.gov); no coupon auction today; 10y eased after 5.34% high; SPY -0.07%, QQQ -0.08%."
+    "summary": "Claims 197K (beat). ISM 54.5 vs 55.0 exp, Prices Paid 77.9 (hot), yields up. SPY -0.19%, QQQ -0.04% at 10:51. NFP tomorrow 08:30 ET; expect de-risking into the close. | 11:55: unchanged schedule; SPY -0.31%, QQQ -0.25%; 10y ~5.25%; Brent >$100 (China fuel export halt); AAPL -1.9% main drag. | 12:48: Jefferson 13:30 confirmed (federalreserve.gov); no coupon auction today; 10y eased after 5.34% high; SPY -0.07%, QQQ -0.08%. | 13:45: Jefferson 'no urgency' for another hike (mildly dovish, upside-inflation caveat); yields lower; rally started 13:16 pre-speech. Entry window left: 13:45-14:45 (Bowman 14:45-15:15, Cook 15:15-15:45 cover to cutoff)."
   },
   "bias": {
     "SPY": {
-      "htf": "bearish",
+      "htf": "neutral",
       "draw": "higher low 760.81 (12:20), pressing ONL/PDL 761.93-762.18 at 761.69; bias-change needs 5m close >762.18 that holds; sell-side 759.25/759.00",
       "levels": {
         "PDH": 769.41,
@@ -46,11 +46,13 @@
         "session_low": 758.86,
         "OR_high": 765.26,
         "OR_low": 763.39,
-        "VWAP": 761.48
+        "VWAP": 761.8,
+        "prenews_H": 762.57,
+        "prenews_L": 760.29
       }
     },
     "QQQ": {
-      "htf": "bearish",
+      "htf": "neutral",
       "draw": "lower high after 738.94 probe, 738.71; PDL 739.46 overhead; sell-side 736.27",
       "levels": {
         "PDH": 745.1,
@@ -58,12 +60,14 @@
         "prev_close": 739.77,
         "ONH": 746.11,
         "ONL": 741.59,
-        "session_high": 743.93,
+        "session_high": 744.26,
         "session_low": 736.27,
         "OR_high": 743.93,
         "OR_low": 741.04,
         "structure_kill": 736.91,
-        "VWAP": 739.45
+        "VWAP": 740.0,
+        "prenews_H": 739.88,
+        "prenews_L": 736.9
       }
     }
   },
@@ -78,7 +82,14 @@
     "11:12 SPY 1m gap 759.08 -> 759.40 between 11:10 close and 11:11 open (minor).",
     "11:41 SPY stored session low 758.86 not in 5m bars (5m low 759.00 at 11:05); treat as unverified 1m print."
   ],
-  "signals_today": [],
+  "signals_today": [
+    {
+      "time_et": "13:45",
+      "symbol": "SPY/QQQ",
+      "decision": "no entry",
+      "reason": "E breakout valid but no retest; conditional plans set"
+    }
+  ],
   "books": {
     "QQQM": {
       "start_cash": 500,
@@ -108,12 +119,12 @@
     }
   },
   "regime": {
-    "SPY": "news-driven, IN BLACKOUT until 13:45; SPY 764.36, holding",
-    "QQQ": "news-driven, IN BLACKOUT until 13:45; QQQ 743.24, holding",
-    "note": "from 12:30 news-driven (Jefferson 13:30): E only, after 13:45"
+    "SPY": "news-driven (E only, half size); broke pre-news range 13:20, no retest; 764.92",
+    "QQQ": "news-driven (E only, half size); broke pre-news range 13:15, no retest; 743.97",
+    "note": "E entries only until ~14:25; cancel any working order by 14:30"
   },
   "watch_after_1345": {
-    "SPY": "5m close >762.18 holding = bullish (763.39, 765.26); fail + 5m close <760.81 = trend down (759.25/759.00)",
-    "QQQ": "5m close <737.44 then <736.27 = trend down, B short (PSQ/SQQQ) on pullback to 739.45; 5m close >739.46+VWAP holding = bullish; E uses 12:30-13:15 range"
+    "SPY": "signal only: E long limit 762.65 stop 761.90 TP1 764.93 TP2 765.33 if retest of 762.57 holds before 14:25",
+    "QQQ": "E long limit 739.95 stop 738.90 TP1 742.93 TP2 744.26 if retest of 739.88 holds (5m close back above, none below) before 14:25; invalid on 5m close <739.46 or PDH 745.10 tagged first"
   }
 }

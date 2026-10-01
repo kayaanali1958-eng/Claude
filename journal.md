@@ -273,3 +273,11 @@
 - Positions: none
 - Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: none
 
+### 2026-10-01 13:45 ET · PAPER
+- Condition: news-driven (refreshed 13:45: Jefferson "no urgency" for another hike, mildly dovish; yields lower); blackout: ended 13:45; next 14:45–15:15 (Bowman), then 15:15–15:45 (Cook); only entry window left 13:45–14:45
+- Bias: SPY neutral (was bearish; reclaimed PDL/prev close; 764.92), QQQ neutral (was bearish; new session high 744.26; 743.97)
+- Regime: SPY news-driven, QQQ news-driven; strategy E only, half size
+- Decision: NO TRADE — E breakouts valid (SPY 13:20, QQQ 13:15 5m closes above pre-news highs 762.57/739.88) but no retest; not chasing. Conditional E plan: QQQ limit 739.95 / stop 738.90 / TP1 742.93 / TP2 744.26 if retest holds before 14:25 (SPY equivalent signal-only)
+- Positions: none
+- Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: VWAP estimated
+
