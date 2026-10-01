@@ -1,7 +1,7 @@
 {
   "date": "2026-10-01",
   "mode": "paper",
-  "last_run_et": "2026-10-01 12:29",
+  "last_run_et": "2026-10-01 12:33",
   "desk_closed": false,
   "desk_closed_reason": null,
   "recap_written": false,
@@ -108,8 +108,8 @@
     }
   },
   "regime": {
-    "SPY": "unclear (5m HH/HL since 11:10, at VWAP 761.48, under ONL/PDL; flipped <25 min ago)",
-    "QQQ": "unclear (wedge 736.6-738.9 under VWAP 739.45, VWAP sloping down)",
+    "SPY": "news-driven (Jefferson 13:30); SPY 762.23 tagging PDL 762.18 from below",
+    "QQQ": "news-driven (Jefferson 13:30); QQQ 739.17 just under PDL 739.46",
     "note": "from 12:30 news-driven (Jefferson 13:30): E only, after 13:45"
   },
   "watch_after_1345": {
