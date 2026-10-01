@@ -96,3 +96,10 @@
 - Positions: none
 - Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: none
 
+### 2026-10-01 11:55 ET · PAPER
+- Condition: news-driven (refreshed 11:55: yields ~5.25%, Brent >$100, AAPL -1.9% drag; schedule unchanged); blackout: none now; next 13:15–13:45
+- Bias: SPY bearish (local low 759.27, bounce 760.33 under 760.36 trigger), QQQ bearish (micro-sweep of 736.585 by <2c, low-volume 1m CHoCH to 737.95; hypothetical 737.23/736.55/738.30/739.46 rejected: HTF bearish, minor sweep, outside window)
+- Decision: NO TRADE — no qualifying setup; risk-manager not called
+- Positions: none
+- Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: news from single sources (Yahoo, FinancialJuice)
+

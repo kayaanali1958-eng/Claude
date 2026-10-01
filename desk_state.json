@@ -1,12 +1,12 @@
 {
   "date": "2026-10-01",
   "mode": "paper",
-  "last_run_et": "2026-10-01 11:51",
+  "last_run_et": "2026-10-01 11:55",
   "desk_closed": false,
   "desk_closed_reason": null,
   "recap_written": false,
   "news": {
-    "updated_et": "10:50",
+    "updated_et": "11:55",
     "condition": "news-driven",
     "blackouts": [
       {
@@ -30,12 +30,12 @@
         "event": "Cook + Williams panel 15:30"
       }
     ],
-    "summary": "Claims 197K (beat). ISM 54.5 vs 55.0 exp, Prices Paid 77.9 (hot), yields up. SPY -0.19%, QQQ -0.04% at 10:51. NFP tomorrow 08:30 ET; expect de-risking into the close."
+    "summary": "Claims 197K (beat). ISM 54.5 vs 55.0 exp, Prices Paid 77.9 (hot), yields up. SPY -0.19%, QQQ -0.04% at 10:51. NFP tomorrow 08:30 ET; expect de-risking into the close. | 11:55: unchanged schedule; SPY -0.31%, QQQ -0.25%; 10y ~5.25%; Brent >$100 (China fuel export halt); AAPL -1.9% main drag."
   },
   "bias": {
     "SPY": {
       "htf": "bearish",
-      "draw": "lower high 760.36 (11:48), 759.49; sell-side 759.25, 759.00, 757.97; BOS trigger above 760.36 after a sweep",
+      "draw": "local low 759.27 (11:53), bounce 760.33 under 760.36 trigger; sell-side 759.25, 759.00, 757.97",
       "levels": {
         "PDH": 769.41,
         "PDL": 762.18,
@@ -50,7 +50,7 @@
     },
     "QQQ": {
       "htf": "bearish",
-      "draw": "lower high 737.70 (11:49), 736.86; sell-side 736.60, 736.27, 735.34; BOS trigger above 737.70 after a sweep",
+      "draw": "micro-sweep 736.585 (11:53) + 1m CHoCH to 737.95 on low volume; needs sweep of 736.27 + 5m close >738.30; sell-side 736.27, 735.34",
       "levels": {
         "PDH": 745.1,
         "PDL": 739.46,
