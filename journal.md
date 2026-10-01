@@ -425,3 +425,11 @@
 - Positions: none
 - Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: none
 
+### 2026-10-01 15:58 ET · PAPER
+- Condition: news-driven (13:45 report); blackout: none; end of day
+- Bias: SPY neutral, QQQ neutral
+- Regime: end of day (after 15:55)
+- Decision: MANAGED end-of-day flatten — nothing to close; both books flat (no positions, no working orders)
+- Positions: none
+- Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: none
+
