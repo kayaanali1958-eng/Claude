@@ -1,7 +1,7 @@
 {
   "date": "2026-10-01",
   "mode": "paper",
-  "last_run_et": "2026-10-01 13:02",
+  "last_run_et": "2026-10-01 13:07",
   "desk_closed": false,
   "desk_closed_reason": null,
   "recap_written": false,
@@ -108,8 +108,8 @@
     }
   },
   "regime": {
-    "SPY": "news-driven (Jefferson 13:30); SPY 761.29, chopping under PDL 762.18",
-    "QQQ": "news-driven (Jefferson 13:30); QQQ 738.29, chopping under PDL 739.46",
+    "SPY": "news-driven (Jefferson 13:30); SPY 761.81 under PDL 762.18",
+    "QQQ": "news-driven (Jefferson 13:30); QQQ 739.07 under PDL 739.46",
     "note": "from 12:30 news-driven (Jefferson 13:30): E only, after 13:45"
   },
   "watch_after_1345": {
