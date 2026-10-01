@@ -1,7 +1,7 @@
 {
   "date": "2026-10-01",
   "mode": "paper",
-  "last_run_et": "2026-10-01 11:08",
+  "last_run_et": "2026-10-01 11:12",
   "desk_closed": false,
   "desk_closed_reason": null,
   "recap_written": false,
@@ -43,7 +43,7 @@
         "ONH": 766.08,
         "ONL": 761.93,
         "session_high": 765.33,
-        "session_low": 759.01,
+        "session_low": 758.86,
         "OR_high": 765.26,
         "OR_low": 763.39
       }
@@ -58,7 +58,7 @@
         "ONH": 746.11,
         "ONL": 741.59,
         "session_high": 743.93,
-        "session_low": 736.76,
+        "session_low": 736.27,
         "OR_high": 743.93,
         "OR_low": 741.04,
         "structure_kill": 736.91
@@ -72,7 +72,8 @@
     "SPY 5m 09:50 bar suspect (38k volume, 1.10 gap from prior close).",
     "Premarket outlier prints at 04:00 ET (SPY 767.87, QQQ 750.58) and QQQ 08:05 (739.216) excluded from ONH/ONL.",
     "News: MarketWatch/Investing/FXStreet pages 403; one Yahoo summary showed impossible full-day closes at 10:50, treated as unverified.",
-    "11:01 ET: desk switched to $500 paper books (QQQM, TQQQ) mid-session; earlier runs today had no trades."
+    "11:01 ET: desk switched to $500 paper books (QQQM, TQQQ) mid-session; earlier runs today had no trades.",
+    "11:12 SPY 1m gap 759.08 -> 759.40 between 11:10 close and 11:11 open (minor)."
   ],
   "signals_today": [],
   "books": {
