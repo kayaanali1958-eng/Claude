@@ -138,3 +138,10 @@
 - Positions: none
 - Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: none
 
+### 2026-10-01 12:24 ET · PAPER
+- Condition: news-driven (reused 11:55 report); blackout: none now; next 13:15–13:45
+- Bias: SPY bearish (higher low 760.81, pressing ONL/PDL supply at 761.69; no 5m close above 762.18), QQQ bearish (lower high after 738.94 probe; 738.71 under PDL 739.46)
+- Decision: NO TRADE — no sweep; SPY pressing supply is a watch item only; outside main window
+- Positions: none
+- Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: thin QQQ volume
+
