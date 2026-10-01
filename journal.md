@@ -321,3 +321,11 @@
 - Positions: none
 - Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: SPY 5m 14:00 bar mismatches 1m bars
 
+### 2026-10-01 14:13 ET · PAPER
+- Condition: news-driven (13:45 report); blackout: none now; next 14:45–15:15 (Bowman), 15:15–15:45 (Cook)
+- Bias: SPY neutral (bounced 762.20→763.35), QQQ neutral (bounced 740.44→741.64)
+- Regime: SPY news-driven, QQQ news-driven; character changed ≤15 min ago (wait rule)
+- Decision: NO TRADE — E plans cancelled 14:08 (failed news move); no strategy allowed; blackouts run past the 15:30 cutoff, so no entries possible
+- Positions: none
+- Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: none
+
