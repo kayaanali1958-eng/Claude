@@ -12,11 +12,11 @@ Read `settings.md` (MODE) and `desk_state.json` first. Trade only the account in
 - Never widen a stop. Never move a stop down on a long.
 - Never add to a losing position.
 - Never place an order that was not APPROVED, or with a size other than the approved size.
-- Never use market orders for entries. Never trade options, crypto, or symbols outside settings.md.
+- Never use market orders for entries. Never trade options, crypto, or symbols outside settings.md (signal symbols plus QQQM, TQQQ, PSQ, SQQQ). Never short: bearish ideas are bought through the inverse fund.
 - Never hold past 3:55 PM ET.
 
 ## PAPER mode (MODE: paper)
-Place nothing. Call no order tools. Each paper book (QQQM, TQQQ) is separate: its own cash, orders, positions and P&L. Simulate each book on its own vehicle's 1-minute bars since the last run (get_equity_historicals, interval `minute`), using the mapped levels in its APPROVED line:
+Place nothing. Call no order tools. Each paper book (QQQM book, TQQQ book) is separate, and its vehicle can be the bullish fund (QQQM/TQQQ) or the inverse one (PSQ/SQQQ) per the APPROVED line. Every position is a plain long, whatever the vehicle: its own cash, orders, positions and P&L. Simulate each book on its own vehicle's 1-minute bars since the last run (get_equity_historicals, interval `minute`), using the mapped levels in its APPROVED line:
 - Entry limit fills if any bar's low ≤ limit. Fill price = limit.
 - After fill, the stop is hit if any later bar's low ≤ stop. Fill = stop (or the bar's open if it gapped below).
 - TP1 hit if a bar's high ≥ TP1: sell half (round down), move the stop to entry (breakeven).

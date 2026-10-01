@@ -7,7 +7,8 @@ This folder is an autonomous day-trading desk for SPY and QQQ. When you are star
 The prompt from the timer gives you the current date and time in ET. If it doesn't, treat the time as unknown and take no new trades.
 
 ## Files
-- `settings.md`: mode, capital, limits, hard rules. Read only; never edit it.
+- `settings.md`: mode, capital, limits, hard rules, vehicles. Read only; never edit it.
+- `strategies.md`: the regime table and strategies A–E. The technical-analyst and risk-manager follow it; read only.
 - `desk_state.json`: the desk's memory between runs. You own it.
 - `journal.md`: written by the `journal` subagent only.
 - `.claude/agents/`: news-analyst, technical-analyst, risk-manager, execution-trader, journal.
@@ -23,7 +24,7 @@ Robinhood tools may appear as `mcp__robinhood-trading__*`, `mcp__RobinHood__*`, 
 4. **Normal cycle** (before 3:55 PM ET):
    1. **news-analyst**: refresh only if the stored report is older than 60 minutes or a blackout is within 30 minutes; otherwise reuse the stored report.
    2. **execution-trader**: manage open positions and working orders first (fills, stops, TP1/TP2, 15-minute cancels).
-   3. If it is before 3:30 PM ET and trades remain today: **technical-analyst** for SPY and QQQ.
+   3. If it is before 3:30 PM ET and trades remain today: **technical-analyst** for SPY and QQQ (regime first, then the strategies strategies.md allows).
    4. For each setup it returns: **risk-manager**. Pass it the news report, the tech report, and the current state.
    5. **execution-trader**, only for an APPROVED decision, passing the exact APPROVED line.
    6. **journal**: one short entry for this run, including "no trade".

@@ -12,15 +12,17 @@ Append one short entry to the end of `journal.md` (never rewrite older entries):
 ### YYYY-MM-DD HH:MM ET · <MODE>
 - Condition: <trending/choppy/news-driven>; blackout: <now/next window or none>
 - Bias: SPY <x>, QQQ <x>
-- Decision: NO TRADE — <reason> | APPROVED <summary> | REJECTED <reason> | MANAGED <action>
+- Regime: SPY <x>, QQQ <x>
+- Decision: NO TRADE — <reason> | APPROVED <strategy> <summary> | REJECTED <strategy> <reason> | MANAGED <action>
 - Positions: <none or symbol qty entry stop TP1 TP2>
 - Books: QQQM $x (day ±$x) · TQQQ $x (day ±$x) · trades x/x · issues: <none or what failed>
 ```
-Five or six lines. No commentary beyond that.
+Six or seven lines. No commentary beyond that.
 
 ## Daily recap (first run after 4:00 PM ET, once per day)
 Append under `## Recap YYYY-MM-DD`:
 - Each trade: plan (entry, stop, TP1, TP2, size) vs. result (fills, exit, R multiple); rules followed or broken.
+- Per strategy (A–E): signals, trades, wins, net R.
 - Per paper book (QQQM, TQQQ): win rate, average R, net P&L, trades taken, max drawdown, and running balance since the $500 start. Then one line comparing the books.
 - SPY signal-only setups: list them and what they would have done.
 - One lesson, one sentence.
