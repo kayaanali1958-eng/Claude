@@ -26,3 +26,10 @@
 - Positions: none
 - Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: none this run
 
+### 2026-10-01 11:08 ET · PAPER
+- Condition: news-driven (reused 10:50 report); blackout: none now; next 13:15–13:45
+- Bias: SPY bearish (new low ~759.01, no reclaim of 759.72; draw 757.97), QQQ bearish (broke 736.91 structure kill, ~736.76; draw 735.34, 731.63)
+- Decision: NO TRADE — both bearish, long-only desk stands aside; outside main window
+- Positions: none
+- Books: QQQM $500.00 (day $0) · TQQQ $500.00 (day $0) · trades 0/3 · issues: none
+
