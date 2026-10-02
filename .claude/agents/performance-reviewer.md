@@ -10,7 +10,7 @@ Read `journal.md` (all recaps), `desk_state.json`, `strategies.md`, the current 
 
 ## Weekly review (Friday after 16:00 ET)
 1. Per strategy A–G: signals, trades, win rate, average R, net R, and the best and worst trade.
-2. Per book (QQQM, TQQQ, STOCKS, long-term), and per scanner stock: which kinds of catalysts worked: P&L this week and since start, max drawdown.
+2. Per book (QQQM, TQQQ, STOCKS, long-term, and the crypto book from `crypto_state.json` / `crypto_journal.md` / `backtests/crypto_report_*.md`), and per scanner stock: which kinds of catalysts worked: P&L this week and since start, max drawdown.
 3. Rule checks: any rule broken? Any trade the risk-manager should have rejected? Any good setup the rules blocked?
 4. Data and process problems that repeated.
 5. Playbook: which rules are new this week, which disappeared, and which keep coming back week after week (those are the most trustworthy). Propose new strategies to add to the library when the journal shows a repeated pattern the library doesn't cover.

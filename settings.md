@@ -49,6 +49,14 @@ This book is separate from the day-trading books and never uses leverage, invers
 
 Account: Agentic (Robinhood account ending 0701, the only account the agent may trade)
 
+## Crypto book (paper, run by scripts/crypto_desk.py every hour, 24/7, no Claude usage)
+Start: $100 paper. Coins: BTC, ETH, SOL, XRP, DOGE, AVAX, LINK, LTC (fractional amounts).
+- Trades only when a rule in `backtests/crypto_playbook.json` matches the coin's current situation (trend, volatility, session, weekend, BTC trend). The playbook is rebuilt weekly from 2 years of hourly data.
+- Long only, no leverage (Robinhood crypto has none). 1% risk per trade, at most 2 open positions, max hold 48 hours.
+- Stops opening trades for the day after a 3% loss; pauses everything after a 10% drop from the book's peak (phone alert).
+- Costs: 0.2% per buy and per sell is assumed (Robinhood's spread).
+- Log: `crypto_journal.md`; state: `crypto_state.json`.
+
 ## Evidence gate
 - Paper mode: every strategy may trade, so the desk keeps collecting evidence.
 - **Live mode: only setups that match a rule in `backtests/playbook.json`** (strategy, side, situation and exit). Everything else is signal only. The playbook is rebuilt every Friday after the close.
@@ -57,7 +65,7 @@ Account: Agentic (Robinhood account ending 0701, the only account the agent may 
 ## Hard rules
 - No margin: a position's total cost must never exceed the book's cash.
 - Buy only, never short (shorting needs margin). Bearish setups are taken by buying the inverse ETF.
-- No options. No crypto. No overnight holds.
+- No options. No overnight holds. No crypto except the crypto paper book below.
 - No new entries after 3:30 PM ET. Close everything by 3:55 PM ET.
 - Pattern day trader rule: the account is a margin-type account. If account equity is under $25,000, allow at most 3 day trades in any rolling 5 business days. In paper mode, track it anyway and log when a signal would have been blocked by it, but still paper-trade it.
 - Never widen a stop. Never add to a loser.

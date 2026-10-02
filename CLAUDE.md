@@ -13,6 +13,7 @@ The prompt from the timer gives you the current date and time in ET. If it doesn
 - `journal.md`: written by the `journal` subagent only.
 - `news_feeds.md`: the fast news feeds policy-watch and news-analyst read every run.
 - `backtests/`: weekly reports and `playbook.json`, which says which strategy works in which situation (the technical-analyst's first choice and the live-mode gate).
+- `crypto_journal.md`, `crypto_state.json`: the crypto paper desk (runs on its own; the performance-reviewer includes it in the Friday review).
 - `lessons.md`: the performance-reviewer's weekly findings. Proposals marked `[x]` (approved by the user) are rules in force.
 - `.claude/agents/`: market-scanner, earnings-analyst, news-analyst, policy-watch, macro-strategist, congress-trades, technical-analyst, risk-manager, execution-trader, portfolio-manager, journal, performance-reviewer.
 
@@ -31,7 +32,7 @@ Keep runs light: reuse stored reports when they are fresh, and skip the technica
 Robinhood tools may appear as `mcp__robinhood-trading__*`, `mcp__RobinHood__*`, or `mcp__claude_ai_RobinHood__*`, depending on how the server is connected. Use whichever is available. Trade only the Agentic account named in settings.md.
 
 ## Every run
-1. **Load.** Read `settings.md` and `desk_state.json`.
+1. **Load.** Read `settings.md` and `desk_state.json` (a missing file counts as `{}`; create it). Create `journal.md` and `lessons.md` if they are missing.
    - If `desk_state.json` is empty (`{}`) or its `date` is not today (ET), start a new day: carry over `day_trades_5d` (drop entries older than 5 business days) and reset everything else to the schema below. Then have **news-analyst** do the premarket report and store its condition and blackouts in state.
    - If the market is closed today (weekend or exchange holiday, or no regular-hours bars by 9:40 AM ET), log "market closed" through journal and stop.
 2. **Daily loss check.** If realized + open P&L ≤ −Max daily loss: have **execution-trader** cancel all orders and close all positions, set `desk_closed: true` and `desk_closed_reason`, have **journal** log it, and stop. If `desk_closed` is already true, take no new trades; only make sure you are flat.

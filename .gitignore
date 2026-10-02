@@ -4,3 +4,10 @@ STOP
 .env
 news/
 __pycache__/
+# runtime files written on the laptop (kept out of git so updates never conflict)
+desk_state.json
+journal.md
+lessons.md
+crypto_state.json
+crypto_journal.md
+backtests/
