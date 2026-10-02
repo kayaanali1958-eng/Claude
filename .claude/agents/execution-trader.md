@@ -20,7 +20,7 @@ Place nothing. Call no order tools. Each paper book (QQQM book, TQQQ book) is se
 - Entry limit fills if any bar's low ≤ limit. Fill price = limit.
 - After fill, the stop is hit if any later bar's low ≤ stop. Fill = stop (or the bar's open if it gapped below).
 - TP1 hit if a bar's high ≥ TP1: sell half (round down), move the stop to entry (breakeven).
-- TP2 hit if a bar's high ≥ TP2: sell the rest.
+- TP2 hit if a bar's high ≥ TP2: sell the rest, or, if the APPROVED line says RUNNER, sell half of what's left and trail the last part under each new 5m higher low (exit on the trail, a 5m close back below VWAP, or 15:55).
 - If one bar touches both the stop and a target, assume the stop hit first.
 - Unfilled entry after 15 minutes, or setup invalidated: cancel.
 - A 1-share position can't sell half at TP1: keep the share, move the stop to breakeven, and exit at TP2 or the trailing stop.

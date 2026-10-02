@@ -57,6 +57,7 @@ Strategy: <A–E name> <LONG|SHORT>   Regime: <x>
 Checklist: x/<7|6>  [✓/✗ per item]   Risk %: <1|0.5>
 Limits: OK | <which failed>
 Quotes: QQQ x, <vehicle> x, <vehicle> x @ HH:MM:SS
+(Add `RUNNER` to an APPROVED line when strategies.md's runner rule applies: trend regime in the trade's direction or catalyst grade +2, and at least 2 shares.)
 APPROVED [QQQM book]: BUY <n> <QQQM|PSQ> limit x stop x TP1 x TP2 x cancel-after HH:MM  (risk $x)
 APPROVED [TQQQ book]: BUY <n> <TQQQ|SQQQ> limit x stop x TP1 x TP2 x cancel-after HH:MM  (risk $x)
    or

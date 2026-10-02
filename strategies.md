@@ -18,6 +18,8 @@ Fridays and the afternoon before NFP/CPI/FOMC: use half size for every strategy.
 
 Where the styles come from: A and B are the ICT / TJR-style liquidity model, C is the classic opening range breakout, D is range mean reversion, E is post-news continuation, F is the VWAP playbook used by institutional desks, G covers the common opening gap plays.
 
+**Let winners run (all strategies):** at TP1 sell half and move the stop to breakeven. At TP2 sell half of what's left and keep the last quarter as a **runner** when the day is strong: regime is trend in the trade's direction, or the catalyst grade is +2. Trail the runner's stop under each new 5m higher low (above each lower high for inverse trades) and exit on the trail, at a 5m close back through VWAP, or at 15:55. Otherwise exit everything at TP2. One-share positions have no runner: they exit at TP2.
+
 **Picking between setups:** take at most one new trade per signal symbol at a time. If several qualify, take the highest checklist score, then the higher R:R to TP2, then the one aligned with the macro lean.
 
 ## 2. Strategies
