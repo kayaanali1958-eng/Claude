@@ -39,6 +39,17 @@ def push(title, body, priority="default"):
         print(f"notify failed: {e}")
 
 
+def last_run_output(lines=8):
+    """The last lines the most recent desk run printed (usually the error), from logs/desk-*.log."""
+    logs = sorted((ROOT / "logs").glob("desk-*.log"))
+    if not logs:
+        return "(no desk log found)"
+    text = logs[-1].read_text(encoding="utf-8", errors="replace")
+    run = text[text.rfind("===== run"):]
+    out = [l for l in run.splitlines()[1:] if l.strip() and not l.startswith("===== exit")]
+    return "\n".join(out[-lines:]) or "(the run printed nothing)"
+
+
 def main():
     for stream in (sys.stdout, sys.stderr):
         try:
@@ -54,8 +65,8 @@ def main():
     if exit_code != 0:
         state["fails"] += 1
         if state["fails"] in (1, 3, 10):          # don't spam: 1st, 3rd and 10th failure in a row
-            push("Desk run FAILED", f"Exit code {exit_code}, {state['fails']} failed run(s) in a row. "
-                 "Check logs\\desk-<date>.log on the laptop.", "high")
+            push("Desk run FAILED", f"Exit code {exit_code}, {state['fails']} failed run(s) in a row.\n"
+                 f"Last output:\n{last_run_output()}", "high")
     else:
         if state["fails"] >= 3:
             push("Desk recovered", "Runs are working again.")
