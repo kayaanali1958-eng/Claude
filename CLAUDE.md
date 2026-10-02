@@ -20,7 +20,6 @@ The prompt from the timer gives you the current date and time in ET. If it doesn
 |---|---|---|
 | First run of the day (new day) | news-analyst, macro-strategist, congress-trades, policy-watch | Premarket: calendar and blackouts, macro lean and size note, politician watchlist, overnight political headlines |
 | 9:00–9:25, then every 30 min until 15:00 | market-scanner, then earnings-analyst on its list | Stocks in play and the direction their news/earnings support; store grades in `scanner` |
-
 | Every run, 9:00–15:55 | policy-watch (fast feeds in `news_feeds.md`; web search only to confirm) | Catch Fed, BLS, White House, tariff and breaking headlines within minutes; may add an unscheduled blackout |
 | Every run | execution-trader, technical-analyst, risk-manager, journal | The normal trading cycle below |
 | First run after 16:00 | journal (daily recap), then portfolio-manager | Day recap; long-term book actions at the close |
