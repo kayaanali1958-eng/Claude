@@ -59,7 +59,7 @@ def log(text, alert_title=None):
 
 def load_state():
     if STATE.exists():
-        return json.loads(STATE.read_text())
+        return json.loads(STATE.read_text(encoding="utf-8"))
     start = float(os.environ.get("CRYPTO_LIVE_MAX") or 0) if LIVE else START
     return dict(start=start, cash=start, peak=START, paused=False, positions=[], closed=[],
                 day=dict(date="", realized=0.0), last_signal={})
@@ -86,8 +86,8 @@ def refresh_playbook():
     if stale:
         log("Rebuilding crypto playbook (weekly)…")
         subprocess.run([sys.executable, str(ROOT / "scripts" / "backtest_crypto.py")], cwd=ROOT,
-                       stdout=open(ROOT / "logs" / "backtest_crypto.log", "a"), stderr=subprocess.STDOUT)
-    return json.loads(PLAYBOOK.read_text()).get("rules", []) if PLAYBOOK.exists() else []
+                       stdout=open(ROOT / "logs" / "backtest_crypto.log", "a", encoding="utf-8"), stderr=subprocess.STDOUT)
+    return json.loads(PLAYBOOK.read_text(encoding="utf-8")).get("rules", []) if PLAYBOOK.exists() else []
 
 
 def manage(st, data):
@@ -194,6 +194,11 @@ def open_new(st, data, rules):
 
 
 def main():
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     notify.load_env()
     (ROOT / "logs").mkdir(exist_ok=True)
     JOURNAL.touch()
@@ -225,7 +230,7 @@ def main():
         st["paused"] = True
         log(f"PAUSED: equity ${eq:.2f} is 10% below peak ${st['peak']:.2f}. Review, then set paused=false.", "Crypto desk paused")
     st["equity"] = round(eq, 2)
-    STATE.write_text(json.dumps(st, indent=2, default=str))
+    STATE.write_text(json.dumps(st, indent=2, default=str), encoding="utf-8")
     print(f"equity ${eq:.2f} · cash ${st['cash']:.2f} · open {len(st['positions'])} · rules {len(rules)}")
 
 

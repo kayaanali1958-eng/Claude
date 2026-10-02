@@ -20,7 +20,7 @@ KEYWORDS = re.compile(r"APPROVED|MANAGED|PAPER (BUY|SELL)|FILLED|desk_closed|DES
 def load_env():
     f = ROOT / ".env"
     if f.exists():
-        for line in f.read_text().splitlines():
+        for line in f.read_text(encoding="utf-8").splitlines():
             if "=" in line and not line.strip().startswith("#"):
                 k, v = line.split("=", 1)
                 os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
@@ -30,7 +30,8 @@ def push(title, body, priority="default"):
     topic = os.environ.get("NTFY_TOPIC")
     if not topic:
         return
-    req = urllib.request.Request(f"https://ntfy.sh/{topic}", data=body[:3500].encode(), method="POST",
+    title = title.encode("ascii", "replace").decode()          # HTTP headers must be plain ASCII
+    req = urllib.request.Request(f"https://ntfy.sh/{topic}", data=body[:3500].encode("utf-8"), method="POST",
                                  headers={"Title": title, "Priority": priority, "Tags": "chart_with_upwards_trend"})
     try:
         urllib.request.urlopen(req, timeout=10)
@@ -39,10 +40,15 @@ def push(title, body, priority="default"):
 
 
 def main():
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     load_env()
     exit_code = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].lstrip("-").isdigit() else 0
     STATE.parent.mkdir(exist_ok=True)
-    state = json.loads(STATE.read_text()) if STATE.exists() else {"journal_len": 0, "fails": 0}
+    state = json.loads(STATE.read_text(encoding="utf-8")) if STATE.exists() else {"journal_len": 0, "fails": 0}
     journal = (ROOT / "journal.md").read_text(encoding="utf-8") if (ROOT / "journal.md").exists() else ""
 
     if exit_code != 0:
@@ -62,7 +68,7 @@ def main():
             title = "Daily recap" if entry.startswith("## Recap") else "Desk: " + first
             push(title, entry.strip())
     state["journal_len"] = len(journal)
-    STATE.write_text(json.dumps(state))
+    STATE.write_text(json.dumps(state), encoding="utf-8")
 
 
 if __name__ == "__main__":

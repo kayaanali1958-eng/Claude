@@ -27,7 +27,7 @@ X_POLL_SECONDS = int(os.environ.get("X_POLL_SECONDS", "60"))
 def load_env():
     env_file = ROOT / ".env"
     if env_file.exists():
-        for line in env_file.read_text().splitlines():
+        for line in env_file.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 k, v = line.split("=", 1)
@@ -46,7 +46,7 @@ def write_item(source, headline, url="", symbols=None, created_at=None, extra=No
     }
     if extra:
         item.update(extra)
-    with OUT.open("a") as f:
+    with OUT.open("a", encoding="utf-8") as f:
         f.write(json.dumps(item) + "\n")
 
 

@@ -381,6 +381,11 @@ def fmt_when(w):
 
 
 def main():
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     symbols = [s.upper() for s in sys.argv[1:]] or DEFAULT
     vix = flat_cols(yf.download("^VIX", period="1y", interval="1d", progress=False, auto_adjust=False))
     vix_by_day = {ts.date(): float(c) for ts, c in vix.close.items()} if not vix.empty else {}
@@ -402,8 +407,8 @@ def main():
     stamp = date.today().isoformat()
     play = dict(date=stamp, symbols=symbols, train_until=str(cut), combinations_tested=tested,
                 strategies_in_library=list(STRATEGIES), rules=rules)
-    (OUT / "playbook.json").write_text(json.dumps(play, indent=2, default=str))
-    (OUT / "approved.json").write_text(json.dumps(dict(date=stamp, approved=rules), indent=2, default=str))
+    (OUT / "playbook.json").write_text(json.dumps(play, indent=2, default=str), encoding="utf-8")
+    (OUT / "approved.json").write_text(json.dumps(dict(date=stamp, approved=rules), indent=2, default=str), encoding="utf-8")
 
     lines = [f"# Playbook {stamp}", "",
              f"{len(STRATEGIES)} strategies × long/short × situations × exits = {tested} combinations tested on "
@@ -424,7 +429,7 @@ def main():
               "## Caution", f"- Testing {tested} combinations means some will pass by luck. Trust rules that keep "
               "showing up week after week, with many unseen trades.",
               "- R × $5 ≈ dollars on a $500 book at 1% risk."]
-    (OUT / f"report_{stamp}.md").write_text("\n".join(lines) + "\n")
+    (OUT / f"report_{stamp}.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines[:min(len(lines), 22)]))
     print(f"\nPlaybook: {OUT / 'playbook.json'}\nReport:   {OUT / f'report_{stamp}.md'}")
 

@@ -91,6 +91,11 @@ def learn(df, cut):
 
 
 def main():
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     coins = [c.upper().replace("-USD", "") for c in sys.argv[1:]] or DEFAULT
     raw = {c: load(c) for c in sorted(set(coins) | {"BTC"})}
     btc_trend = cl.daily_trend_series(raw["BTC"])
@@ -113,7 +118,7 @@ def main():
     (OUT / "crypto_playbook.json").write_text(json.dumps(dict(
         date=stamp, coins=coins, train_until=str(cut), combinations_tested=tested,
         strategies_in_library=list(cl.STRATEGIES), fee_per_side=cl.FEE, max_hold_hours=cl.MAX_HOLD, rules=rules),
-        indent=2, default=str))
+        indent=2, default=str), encoding="utf-8")
     lines = [f"# Crypto playbook {stamp}", "",
              f"{len(cl.STRATEGIES)} strategies × situations × exits = {tested} combinations on {', '.join(coins)} "
              f"({len(df)} signals, 2 years of hourly bars, {cl.FEE * 100:.1f}% cost per side). "
@@ -132,7 +137,7 @@ def main():
     lines += ["", "## Every strategy, no filters (baseline)", "", base.to_markdown(index=False), "",
               f"Caution: {tested} combinations tested; some pass by luck. Trust rules with many unseen trades that keep "
               "passing every week."]
-    (OUT / f"crypto_report_{stamp}.md").write_text("\n".join(lines) + "\n")
+    (OUT / f"crypto_report_{stamp}.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines[:22]))
 
 
