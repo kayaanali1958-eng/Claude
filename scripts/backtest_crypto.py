@@ -140,8 +140,8 @@ def replay(data, rules, cut, all_in, start=100.0, max_open=2):
         worst = max(worst, streak)
         peak = max(peak, eq)
         mdd = max(mdd, 1 - eq / peak)
-    return dict(trades=n, win=round(wins / n * 100) if n else 0, return_pct=round((eq / start - 1) * 100, 1),
-                max_drop_pct=round(mdd * 100), longest_losing_streak=worst, profitable=eq > start)
+    return dict(trades=n, win=round(wins / n * 100) if n else 0, return_pct=round(float(eq / start - 1) * 100, 1),
+                max_drop_pct=round(float(mdd) * 100), longest_losing_streak=worst, profitable=bool(eq > start))
 
 
 def main():
