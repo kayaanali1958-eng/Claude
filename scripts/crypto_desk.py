@@ -164,13 +164,18 @@ def sync_balance(st, today):
         log(f"Book synced to the account: cash ${cash:.2f} ({'added' if delta > 0 else 'removed'} ${abs(delta):.2f})")
 
 
+def size_mode():
+    """CRYPTO_SIZE in .env: empty = 1% risk per trade, 2% = 2% risk, all = all the cash in each trade."""
+    v = (os.environ.get("CRYPTO_SIZE") or "").strip().lower()
+    return {"all": "all_in", "2%": "risk_2pct", "2": "risk_2pct"}.get(v, "risk_1pct")
+
+
 def replay_passed():
     """The daily rebuild replays the unseen months as the desk trades them; live needs a profit there."""
     if (os.environ.get("CRYPTO_GATE") or "").strip().lower() == "off":
         return True                      # the owner chose to trade even though the replay lost money
-    mode = "all_in" if (os.environ.get("CRYPTO_SIZE") or "").strip().lower() == "all" else "risk_1pct"
     try:
-        return json.loads(PLAYBOOK.read_text(encoding="utf-8"))["replay"][mode]["profitable"] is True   # strictly true
+        return json.loads(PLAYBOOK.read_text(encoding="utf-8"))["replay"][size_mode()]["profitable"] is True
     except Exception:
         return False
 
@@ -211,13 +216,18 @@ def open_new(st, data, rules):
         st["last_signal"][coin] = ts
         sit = cl.situation(d, i)
         for name, entry, stop in cl.signals_at(d, i):
+            if not cl.tradeable(sit, entry, stop):
+                continue
             rule = next((r for r in rules if r["strategy"] == name and all(sit.get(k) == v for k, v in r["when"].items())), None)
             if not rule:
                 continue
             risk = entry - stop
-            qty = min(RISK * eq / risk, st["cash"] / (entry * (1 + cl.FEE)))      # no leverage
-            if LIVE and (os.environ.get("CRYPTO_SIZE") or "").strip().lower() == "all":
+            mode = size_mode() if LIVE else "risk_1pct"
+            if mode == "all_in":
                 qty = st["cash"] / (entry * (1 + cl.FEE))     # all-in: the whole book's cash, still no leverage
+            else:
+                pct = 0.02 if mode == "risk_2pct" else RISK
+                qty = min(pct * eq / risk, st["cash"] / (entry * (1 + cl.FEE)))      # no leverage
             if qty * entry < 1:
                 log(f"Skipped {coin} {name}: position under $1")
                 continue

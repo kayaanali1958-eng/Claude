@@ -93,7 +93,7 @@ def learn(df, cut):
     return ranked, tested
 
 
-def replay(data, rules, cut, all_in, start=100.0, max_open=2):
+def replay(data, rules, cut, all_in, start=100.0, max_open=2, risk=0.01):
     """Trade the unseen period the way the live desk would: hour by hour, first matching rule,
     one position per coin, max_open at a time, real sizing and fees. Rule averages can look good
     while the desk itself loses (it misses the rare big wins while it's busy), so this is the gate."""
@@ -103,6 +103,8 @@ def replay(data, rules, cut, all_in, start=100.0, max_open=2):
         for i in range(max(int(d.index.searchsorted(cut)), 150), len(d) - 1):
             sit = cl.situation(d, i)
             for name, e, s in cl.signals_at(d, i):
+                if not cl.tradeable(sit, e, s):
+                    continue
                 r = next((r for r in rules if r["strategy"] == name and all(sit.get(k) == v for k, v in r["when"].items())), None)
                 if not r:
                     continue
@@ -131,7 +133,7 @@ def replay(data, rules, cut, all_in, start=100.0, max_open=2):
         busy = [b for b in busy if b[0] > t0]
         if len(busy) >= slots or any(b[1] == coin for b in busy):
             continue
-        frac = 1 / slots if all_in else min(0.01 / risk_pct, 1 / slots)
+        frac = 1 / slots if all_in else min(risk / risk_pct, 1 / slots)
         eq *= 1 + frac * (mult - 1)
         busy.append((t1, coin))
         n += 1
@@ -165,7 +167,9 @@ def main():
     df = pd.DataFrame(rows)
     cut = df.ts.min() + (df.ts.max() - df.ts.min()) * 2 / 3
     rules, tested = learn(df, cut)
-    gate = {mode: replay(prepared, rules, cut, mode == "all_in") for mode in ("all_in", "risk_1pct")}
+    gate = {"all_in": replay(prepared, rules, cut, True),
+            "risk_1pct": replay(prepared, rules, cut, False, risk=0.01),
+            "risk_2pct": replay(prepared, rules, cut, False, risk=0.02)}
     for mode, g in gate.items():
         print(f"Replay of the unseen period ({mode}): {g}")
     base = df.groupby("strategy")["R_2.0_False"].agg(["count", "mean"]).round(2).rename(

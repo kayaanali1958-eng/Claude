@@ -43,6 +43,14 @@ def trail_stop(stop, entry, risk, high_water, atr, k):
         stop = max(stop, entry, high_water - k * atr)
     return stop
 STRATEGIES = {}
+# Trade filters (desk and replay): long-only crypto works best when the coin itself is in a daily
+# uptrend, and the ~0.4% round-trip cost eats too much of a tight stop, so the stop must be at
+# least MIN_STOP_PCT away. Tested 2024-26: positive in both halves only with both filters on.
+MIN_STOP_PCT = 0.015
+
+
+def tradeable(sit, entry, stop):
+    return sit.get("trend") == "up" and (entry - stop) / entry >= MIN_STOP_PCT
 
 
 def strategy(name):
