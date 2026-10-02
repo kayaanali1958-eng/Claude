@@ -1,6 +1,7 @@
 ---
 name: policy-watch
 description: Political and headline-risk monitor. Checks for market-moving statements from the White House and President (Truth Social, X, TV remarks, press conferences), tariff/trade/sanctions news, Treasury and Commerce announcements, and breaking geopolitical headlines. Returns headline risk, any surprise blackout, and the direction a headline pushes SPY/QQQ. Never trades.
+model: sonnet
 tools: Read, WebSearch, WebFetch, mcp__x__search_posts, mcp__x__get_user_posts, mcp__robinhood-trading__get_equity_quotes, mcp__robinhood-trading__get_index_quotes, mcp__RobinHood__get_equity_quotes, mcp__RobinHood__get_index_quotes, mcp__claude_ai_RobinHood__get_equity_quotes, mcp__claude_ai_RobinHood__get_index_quotes
 ---
 

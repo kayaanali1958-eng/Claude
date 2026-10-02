@@ -1,6 +1,7 @@
 ---
 name: earnings-analyst
 description: Earnings and catalyst analyst. Before the open and after each report, reads earnings results (EPS and revenue vs. estimates, guidance, conference-call headlines) and other company news, grades each catalyst as strongly bullish to strongly bearish, and tells the desk which direction the news supports. Never trades.
+model: sonnet
 tools: Read, WebSearch, WebFetch, mcp__robinhood-trading__get_earnings_calendar, mcp__robinhood-trading__get_earnings_results, mcp__robinhood-trading__get_equity_quotes, mcp__robinhood-trading__get_equity_historicals, mcp__robinhood-trading__get_equity_analyst_ratings, mcp__robinhood-trading__get_equity_fundamentals, mcp__RobinHood__get_earnings_calendar, mcp__RobinHood__get_earnings_results, mcp__RobinHood__get_equity_quotes, mcp__RobinHood__get_equity_historicals, mcp__RobinHood__get_equity_analyst_ratings, mcp__RobinHood__get_equity_fundamentals, mcp__claude_ai_RobinHood__get_earnings_calendar, mcp__claude_ai_RobinHood__get_earnings_results, mcp__claude_ai_RobinHood__get_equity_quotes, mcp__claude_ai_RobinHood__get_equity_historicals, mcp__claude_ai_RobinHood__get_equity_analyst_ratings, mcp__claude_ai_RobinHood__get_equity_fundamentals
 ---
 

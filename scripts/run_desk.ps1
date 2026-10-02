@@ -42,5 +42,7 @@ try {
   $now = $et.ToString('yyyy-MM-dd HH:mm') + ' ET (' + $et.DayOfWeek + ')'
   "===== run $now =====" | Add-Content $log
   & claude -p "Desk run. Current time: $now. Follow CLAUDE.md exactly for one run, then stop." --allowedTools @allowed --permission-mode dontAsk *>> $log
-  "===== exit $LASTEXITCODE =====" | Add-Content $log
+  $rc = $LASTEXITCODE
+  "===== exit $rc =====" | Add-Content $log
+  & python scripts\notify.py $rc *>> logs\notify.log
 } finally { Remove-Item $lock -Recurse -Force -ErrorAction SilentlyContinue }

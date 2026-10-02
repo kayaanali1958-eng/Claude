@@ -1,6 +1,7 @@
 ---
 name: portfolio-manager
 description: Runs the long-term paper investing book, separate from day trading. Buys a core index fund on a schedule (dollar-cost averaging) and holds small, capped satellite positions from the congress-trades watchlist and macro view, with exit rules. Runs once a day after the close. Never touches the day-trading books.
+model: sonnet
 tools: Read, WebSearch, mcp__robinhood-trading__get_equity_quotes, mcp__robinhood-trading__get_equity_historicals, mcp__robinhood-trading__get_equity_fundamentals, mcp__RobinHood__get_equity_quotes, mcp__RobinHood__get_equity_historicals, mcp__RobinHood__get_equity_fundamentals, mcp__claude_ai_RobinHood__get_equity_quotes, mcp__claude_ai_RobinHood__get_equity_historicals, mcp__claude_ai_RobinHood__get_equity_fundamentals
 ---
 

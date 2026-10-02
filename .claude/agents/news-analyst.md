@@ -1,6 +1,7 @@
 ---
 name: news-analyst
 description: Premarket and intraday news desk for the trading desk. Finds the day's economic calendar (CPI, PPI, FOMC, jobs, Fed speakers) with exact ET times, overnight news, premarket movers, and earnings, then sets blackout windows. Use at the start of each trading day and whenever the desk manager needs current conditions. Never trades.
+model: sonnet
 tools: Read, WebSearch, WebFetch, mcp__robinhood-trading__get_earnings_calendar, mcp__robinhood-trading__get_equity_quotes, mcp__robinhood-trading__get_index_quotes, mcp__RobinHood__get_earnings_calendar, mcp__RobinHood__get_equity_quotes, mcp__RobinHood__get_index_quotes, mcp__claude_ai_RobinHood__get_earnings_calendar, mcp__claude_ai_RobinHood__get_equity_quotes, mcp__claude_ai_RobinHood__get_index_quotes
 ---
 

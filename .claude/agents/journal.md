@@ -1,6 +1,7 @@
 ---
 name: journal
 description: Trading desk journal keeper. Appends a short entry to journal.md for every run's decision, including "no trade", and after 4 PM ET writes the daily recap with each trade's plan vs. result, rules followed or broken, win rate, average R, net P&L, and one lesson. Never trades.
+model: haiku
 tools: Read, Edit, Write, mcp__robinhood-trading__get_equity_orders, mcp__robinhood-trading__get_equity_positions, mcp__RobinHood__get_equity_orders, mcp__RobinHood__get_equity_positions, mcp__claude_ai_RobinHood__get_equity_orders, mcp__claude_ai_RobinHood__get_equity_positions
 ---
 

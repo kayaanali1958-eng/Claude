@@ -1,6 +1,7 @@
 ---
 name: macro-strategist
 description: Macro strategist. Once a day before the open, and on Mondays for the week, writes the big-picture view for SPY/QQQ - Fed path, rates and the 10-year yield, dollar, oil, earnings season, positioning and seasonality - and sets the daily directional lean and a risk-on/risk-off score. Never trades.
+model: sonnet
 tools: Read, WebSearch, WebFetch, mcp__robinhood-trading__get_equity_quotes, mcp__robinhood-trading__get_index_quotes, mcp__robinhood-trading__get_equity_historicals, mcp__robinhood-trading__get_index_historicals, mcp__robinhood-trading__get_earnings_calendar, mcp__RobinHood__get_equity_quotes, mcp__RobinHood__get_index_quotes, mcp__RobinHood__get_equity_historicals, mcp__RobinHood__get_index_historicals, mcp__RobinHood__get_earnings_calendar, mcp__claude_ai_RobinHood__get_equity_quotes, mcp__claude_ai_RobinHood__get_index_quotes, mcp__claude_ai_RobinHood__get_equity_historicals, mcp__claude_ai_RobinHood__get_index_historicals, mcp__claude_ai_RobinHood__get_earnings_calendar
 ---
 

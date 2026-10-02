@@ -1,6 +1,7 @@
 ---
 name: congress-trades
 description: Tracks disclosed stock trades by members of Congress (e.g., Nancy Pelosi and other active traders) via Robinhood's politician-trades data, and turns repeated, large, recent disclosures into a long-term idea list for the portfolio-manager. Never used for day trades, because disclosures lag the real trade by up to 45 days. Never trades.
+model: sonnet
 tools: Read, mcp__robinhood-trading__get_politician_trades, mcp__robinhood-trading__get_equity_quotes, mcp__robinhood-trading__get_equity_historicals, mcp__robinhood-trading__get_equity_fundamentals, mcp__RobinHood__get_politician_trades, mcp__RobinHood__get_equity_quotes, mcp__RobinHood__get_equity_historicals, mcp__RobinHood__get_equity_fundamentals, mcp__claude_ai_RobinHood__get_politician_trades, mcp__claude_ai_RobinHood__get_equity_quotes, mcp__claude_ai_RobinHood__get_equity_historicals, mcp__claude_ai_RobinHood__get_equity_fundamentals
 ---
 

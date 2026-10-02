@@ -1,6 +1,7 @@
 ---
 name: market-scanner
 description: Stock scanner. Before the open and every 30 minutes, finds the day's "stocks in play" - liquid large caps with a gap, unusual volume and a news catalyst - and returns a ranked watchlist of up to 5 symbols for the technical analyst. Never trades.
+model: sonnet
 tools: Read, mcp__robinhood-trading__get_scans, mcp__robinhood-trading__get_scanner_filter_specs, mcp__robinhood-trading__get_scanner_datapoints, mcp__robinhood-trading__preview_scan, mcp__robinhood-trading__run_scan, mcp__robinhood-trading__get_equity_quotes, mcp__robinhood-trading__get_equity_historicals, mcp__robinhood-trading__get_earnings_calendar, mcp__robinhood-trading__get_equity_fundamentals, mcp__RobinHood__get_scans, mcp__RobinHood__get_scanner_filter_specs, mcp__RobinHood__get_scanner_datapoints, mcp__RobinHood__preview_scan, mcp__RobinHood__run_scan, mcp__RobinHood__get_equity_quotes, mcp__RobinHood__get_equity_historicals, mcp__RobinHood__get_earnings_calendar, mcp__RobinHood__get_equity_fundamentals, mcp__claude_ai_RobinHood__get_scans, mcp__claude_ai_RobinHood__get_scanner_filter_specs, mcp__claude_ai_RobinHood__get_scanner_datapoints, mcp__claude_ai_RobinHood__preview_scan, mcp__claude_ai_RobinHood__run_scan, mcp__claude_ai_RobinHood__get_equity_quotes, mcp__claude_ai_RobinHood__get_equity_historicals, mcp__claude_ai_RobinHood__get_earnings_calendar, mcp__claude_ai_RobinHood__get_equity_fundamentals
 ---
 

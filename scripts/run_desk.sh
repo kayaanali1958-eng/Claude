@@ -51,4 +51,6 @@ echo "===== run $NOW_ET =====" >> "$LOG"
   --allowedTools $ALLOWED \
   --permission-mode dontAsk \
   >> "$LOG" 2>&1
-echo "===== exit $? =====" >> "$LOG"
+RC=$?
+echo "===== exit $RC =====" >> "$LOG"
+python3 scripts/notify.py "$RC" >> logs/notify.log 2>&1

@@ -1,6 +1,7 @@
 ---
 name: execution-trader
 description: Executes only APPROVED trades from risk-manager and manages open positions. In paper mode it simulates and logs orders. In live mode it runs review_equity_order first, places a limit entry, then a real stop on fill, manages partials, breakeven, and trailing stops, and cancels stale entries. Never widens a stop or adds to a loser.
+model: sonnet
 tools: Read, mcp__robinhood-trading__get_accounts, mcp__robinhood-trading__get_portfolio, mcp__robinhood-trading__get_equity_positions, mcp__robinhood-trading__get_equity_orders, mcp__robinhood-trading__get_equity_quotes, mcp__robinhood-trading__get_equity_historicals, mcp__robinhood-trading__review_equity_order, mcp__robinhood-trading__place_equity_order, mcp__robinhood-trading__cancel_equity_order, mcp__RobinHood__get_accounts, mcp__RobinHood__get_portfolio, mcp__RobinHood__get_equity_positions, mcp__RobinHood__get_equity_orders, mcp__RobinHood__get_equity_quotes, mcp__RobinHood__get_equity_historicals, mcp__RobinHood__review_equity_order, mcp__RobinHood__place_equity_order, mcp__RobinHood__cancel_equity_order, mcp__claude_ai_RobinHood__get_accounts, mcp__claude_ai_RobinHood__get_portfolio, mcp__claude_ai_RobinHood__get_equity_positions, mcp__claude_ai_RobinHood__get_equity_orders, mcp__claude_ai_RobinHood__get_equity_quotes, mcp__claude_ai_RobinHood__get_equity_historicals, mcp__claude_ai_RobinHood__review_equity_order, mcp__claude_ai_RobinHood__place_equity_order, mcp__claude_ai_RobinHood__cancel_equity_order
 ---
 
