@@ -166,6 +166,8 @@ def sync_balance(st, today):
 
 def replay_passed():
     """The daily rebuild replays the unseen months as the desk trades them; live needs a profit there."""
+    if (os.environ.get("CRYPTO_GATE") or "").strip().lower() == "off":
+        return True                      # the owner chose to trade even though the replay lost money
     mode = "all_in" if (os.environ.get("CRYPTO_SIZE") or "").strip().lower() == "all" else "risk_1pct"
     try:
         return bool(json.loads(PLAYBOOK.read_text(encoding="utf-8"))["replay"][mode]["profitable"])
