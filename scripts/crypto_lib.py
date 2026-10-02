@@ -2,7 +2,9 @@
 
 Liquidity: stops and resting orders cluster just beyond obvious levels (prior-day high/low, the Asia
 session range, equal highs/lows). Price often runs those levels (a "sweep") and then reverses.
-T9-T11 trade that reversal; breakouts (T2, T6) trade the moves that don't reverse.
+T9-T11 trade that reversal; breakouts (T2, T6) trade the moves that don't reverse. T12-T15 are
+the ICT models: sweep then displacement (MSS), fair value gap and order block retests, and whale
+volume absorbing a sweep.
 
 Used by scripts/backtest_crypto.py (learning) and scripts/crypto_desk.py (paper trading), so the
 desk trades exactly what was tested. Long only: Robinhood crypto can't be shorted.
@@ -79,6 +81,13 @@ def prepare(df, btc_daily_trend=None):
     sl = l.where(swing.shift(1, fill_value=False)).ffill()        # last confirmed swing low
     sl_prev = l.where(swing.shift(1, fill_value=False)).dropna().shift(1).reindex(df.index).ffill()
     df["eq_low"] = np.where((sl - sl_prev).abs() / sl < 0.001, np.minimum(sl, sl_prev), np.nan)
+    # ICT building blocks: last confirmed swing high (structure), displacement candles (a large body
+    # on heavy volume = big market orders), and bullish fair value gaps (low[k] > high[k-2]).
+    sh = (h > h.shift(1)) & (h > h.shift(-1))
+    df["swing_hi"] = h.where(sh.shift(1, fill_value=False)).ffill()
+    df["disp"] = ((c - df.open) > 1.2 * df.atr) & (v > 2 * df.avgv)
+    df["fvg_lo"] = np.where(l > h.shift(2), h.shift(2), np.nan)       # gap between candle k-2's high
+    df["fvg_hi"] = np.where(l > h.shift(2), l, np.nan)                # and candle k's low
     # Asia range (00-08 UTC) of the same day
     asia = df[df.index.hour < 8]
     df["asia_hi"] = day.map(asia.high.groupby(asia.index.floor("D")).max())
@@ -190,6 +199,64 @@ def s_sweep_eq(d, i):
         return
     if r.low < lvl and r.close > lvl and r.close > r.open:
         return r.close, r.low - 0.2 * r.atr
+
+
+def _swept(d, i, lookback):
+    """Lowest low of the last `lookback` bars if it ran a liquidity level (prior-day low, Asia low,
+    24h low, equal lows) and price closed back above that level; else None."""
+    w = d.iloc[max(0, i - lookback):i + 1]
+    lo = w.low.min()
+    r = d.iloc[i]
+    for lvl in (r.pdl, r.asia_lo, d.lo24.iloc[max(0, i - lookback)], d.eq_low.iloc[max(0, i - lookback)]):
+        if not np.isnan(lvl) and lo < lvl < r.close:
+            return lo
+    return None
+
+
+@strategy("T12 ICT sweep + displacement (market structure shift)")
+def s_ict_mss(d, i):
+    r = d.iloc[i]
+    if r.disp and r.close > d.swing_hi.iloc[i - 1]:              # big buy orders break structure
+        lo = _swept(d, i, 6)
+        if lo is not None:
+            return r.close, lo - 0.2 * r.atr
+
+
+@strategy("T13 ICT fair value gap retrace after sweep")
+def s_ict_fvg(d, i):
+    r = d.iloc[i]
+    for k in range(i - 1, max(i - 12, 2), -1):                   # the newest gap made by a displacement
+        if not np.isnan(d.fvg_lo.iloc[k]) and d.disp.iloc[k - 1]:
+            lo_gap, hi_gap = d.fvg_lo.iloc[k], d.fvg_hi.iloc[k]
+            if d.low.iloc[k + 1:i].min() <= hi_gap if k + 1 < i else False:
+                return                                           # gap already traded into: only the first touch
+            lo = _swept(d, k - 1, 6)
+            if lo is not None and r.low <= hi_gap and r.close > lo_gap and r.close > r.open:
+                return r.close, min(lo_gap - 0.2 * r.atr, r.low - 0.2 * r.atr)
+            return
+
+
+@strategy("T14 ICT order block retest")
+def s_ict_ob(d, i):
+    r = d.iloc[i]
+    for k in range(i - 2, max(i - 24, 1), -1):                   # newest displacement that broke structure
+        if d.disp.iloc[k] and d.close.iloc[k] > d.swing_hi.iloc[k - 1]:
+            ob = d.iloc[k - 1]                                   # order block: last down candle before it
+            if ob.close >= ob.open:
+                return
+            if d.low.iloc[k + 1:i].min() <= ob.high:
+                return                                           # first retest only
+            if r.low <= ob.high and r.close > ob.low and r.close > r.open:
+                return r.close, ob.low - 0.2 * r.atr
+            return
+
+
+@strategy("T15 whale absorption at a liquidity sweep")
+def s_whale(d, i):
+    r = d.iloc[i]
+    rng = r.high - r.low
+    if rng > 0 and r.volume > 3 * r.avgv and r.low < r.lo24 and r.close > r.lo24 and (r.close - r.low) / rng > 0.6:
+        return r.close, r.low - 0.2 * r.atr                      # huge volume swept the lows and got bought
 
 
 def signals_at(d, i):
