@@ -7,6 +7,7 @@ which policy-watch and news-analyst read on every desk run.
 Sources (each one is skipped if its keys are missing):
   - Alpaca news WebSocket (real-time, Benzinga-sourced): ALPACA_KEY_ID, ALPACA_SECRET
   - X accounts (polled every X_POLL_SECONDS):          X_CONSUMER_KEY, X_CONSUMER_SECRET
+  - Finnhub market news (polled every 30 seconds):     FINNHUB_KEY
 
 Keys are read from the environment or from a .env file next to this repo's root.
 Never commit .env; it is in .gitignore.
@@ -134,10 +135,43 @@ async def x_poll():
         await asyncio.sleep(X_POLL_SECONDS)
 
 
+# ---------- Finnhub news polling ----------
+async def finnhub_poll():
+    key = os.environ.get("FINNHUB_KEY")
+    if not key:
+        log("Finnhub: no FINNHUB_KEY, skipping")
+        return
+    seen, first = set(), True
+    log("Finnhub: polling market news")
+    while True:
+        for cat in ("general", "merger"):
+            try:
+                url = f"https://finnhub.io/api/v1/news?category={cat}&token={urllib.parse.quote(key)}"
+                with urllib.request.urlopen(url, timeout=15) as r:
+                    items = json.load(r)
+                for it in sorted(items, key=lambda i: i.get("datetime", 0)):
+                    if it.get("id") in seen:
+                        continue
+                    seen.add(it.get("id"))
+                    if not first:  # skip the backlog on the first poll
+                        write_item("finnhub/" + (it.get("source") or cat), it.get("headline", ""), it.get("url", ""),
+                                   [x for x in (it.get("related") or "").split(",") if x],
+                                   time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(it.get("datetime", 0))),
+                                   {"summary": (it.get("summary") or "")[:400]})
+            except urllib.error.HTTPError as e:
+                log(f"Finnhub: HTTP {e.code}" + (" (bad key?)" if e.code in (401, 403) else ""))
+                if e.code in (401, 403):
+                    return
+            except Exception as e:
+                log(f"Finnhub: {e}")
+        first = False
+        await asyncio.sleep(30)
+
+
 async def main():
     load_env()
     log(f"writing to {OUT}")
-    await asyncio.gather(alpaca_stream(), x_poll())
+    await asyncio.gather(alpaca_stream(), x_poll(), finnhub_poll())
 
 
 if __name__ == "__main__":

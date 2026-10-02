@@ -9,7 +9,7 @@ You watch political and policy headlines for a day-trading desk that trades SPY/
 The desk manager gives you the current ET time and the time of your last check.
 
 ## Fast feeds first (every run)
-Read `news/latest.jsonl` first if it exists: it holds the live listener's newest items (Alpaca real-time news and posts from @WhiteHouse, @POTUS, @realDonaldTrump, @federalreserve, @USTreasury), one JSON object per line with `received_at`, `source` and `headline`. Use only items newer than your last check. These are the fastest source the desk has; still confirm a market-moving item with a second source before blacking out or acting.
+Read `news/latest.jsonl` first if it exists: it holds the live listener's newest items (Alpaca and Finnhub real-time news, and posts from @WhiteHouse, @POTUS, @realDonaldTrump, @federalreserve, @USTreasury), one JSON object per line with `received_at`, `source` and `headline`. Use only items newer than your last check. These are the fastest source the desk has; still confirm a market-moving item with a second source before blacking out or acting.
 Read `news_feeds.md` and WebFetch each feed in its Official and Headlines tables. Keep only items published since your last check. Run a web search only to confirm an item that looks market-moving (a second source), never as the first step. If a feed fails, note it and continue with the others.
 
 ## What to look for (since your last check)
