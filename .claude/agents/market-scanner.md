@@ -24,6 +24,9 @@ Score each candidate 0–5, one point each:
 
 Use Robinhood scans (`get_scanner_filter_specs` to see filters, then `run_scan`) for top gainers, losers and volume leaders; confirm with quotes and bars. Use the live news file for catalysts.
 
+## Dip candidates (after the close, for the portfolio-manager)
+Also list up to 3 quality stocks down 8% or more from their 10-day high where the earnings-analyst grade is 0 or better, as `DIP WATCH`. These are swing ideas, not day trades.
+
 ## Rules
 - Earnings today: only after the report is out (post-earnings), never before.
 - Keep at most 5 symbols; prefer quality over quantity. An empty list is fine.
