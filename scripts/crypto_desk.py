@@ -196,8 +196,16 @@ def open_new(st, data, rules):
 def live_price(coin):
     """Latest trade price from Coinbase's public ticker (no key needed)."""
     import urllib.request
-    with urllib.request.urlopen(f"https://api.exchange.coinbase.com/products/{coin}-USD/ticker", timeout=10) as r:
-        return float(json.load(r)["price"])
+    try:
+        req = urllib.request.Request(f"https://api.exchange.coinbase.com/products/{coin}-USD/ticker",
+                                     headers={"User-Agent": "Mozilla/5.0 trading-desk"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return float(json.load(r)["price"])
+    except Exception:                                  # backup: latest 1-minute bar from Yahoo
+        d = yf.download(f"{coin}-USD", period="1d", interval="1m", progress=False, auto_adjust=False)
+        if isinstance(d.columns, pd.MultiIndex):
+            d.columns = d.columns.get_level_values(0)
+        return float(d["Close"].dropna().iloc[-1])
 
 
 def quick_manage(st):
