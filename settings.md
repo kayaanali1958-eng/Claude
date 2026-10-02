@@ -56,6 +56,7 @@ CRYPTO_MODE: paper
 Paper start: $100. Live: the book is CRYPTO_LIVE_MAX from .env: a dollar amount (the most the desk may ever put in), or `all` (the whole account cash, never margin, re-synced once a day so deposits are used), tracked in `crypto_live_state.json` / `crypto_live_journal.md`. Every live buy gets a real stop order on Robinhood immediately. Coins: BTC, ETH, SOL, XRP, DOGE, AVAX, LINK, LTC (fractional amounts).
 - Trades only when a rule in `backtests/crypto_playbook.json` matches the coin's current situation (trend, volatility, session, weekend, BTC trend). The playbook is rebuilt weekly from 2 years of hourly data.
 - Long only, no leverage (Robinhood crypto has none). 1% risk per trade, at most 2 open positions, max hold 48 hours.
+- Live sizing: `CRYPTO_SIZE=all` in .env puts all the book's cash into each trade (so one trade at a time; the loss on a trade is the stop distance, usually 1–4% of the book). Empty = 1% risk.
 - Stops opening trades for the day after a 3% loss; pauses everything after a 10% drop from the book's peak (phone alert).
 - Costs: 0.2% per buy and per sell is assumed (Robinhood's spread).
 - Log: `crypto_journal.md`; state: `crypto_state.json`.

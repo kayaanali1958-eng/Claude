@@ -186,6 +186,8 @@ def open_new(st, data, rules):
                 continue
             risk = entry - stop
             qty = min(RISK * eq / risk, st["cash"] / (entry * (1 + cl.FEE)))      # no leverage
+            if LIVE and (os.environ.get("CRYPTO_SIZE") or "").strip().lower() == "all":
+                qty = st["cash"] / (entry * (1 + cl.FEE))     # all-in: the whole book's cash, still no leverage
             if qty * entry < 1:
                 log(f"Skipped {coin} {name}: position under $1")
                 continue
