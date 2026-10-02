@@ -8,7 +8,7 @@ All strategies are long-only in execution. A bearish setup is taken by **buying 
 `backtests/playbook.json` is rebuilt every Friday by `scripts/backtest.py`. It tests every strategy in its library, long and short, in every market situation and with every exit, and keeps only the combinations that made money on days they were not tuned on.
 
 Every run, for each symbol, the technical-analyst:
-1. Works out the **situation** exactly as the playbook defines it: `trend` (up/down/flat: yesterday's close vs. its 20-day average, and the 20-day vs. the 50-day), `gap` (up/down/flat at ±0.3%), `vol` (yesterday's range vs. its 20-day average: high above 1.3×, low below 0.7×), `vix` (calm under 20, nervous 20–30, fear above 30), `time` (open before 10:30, midday until 14:00, late after), `vwap` (above/below).
+1. Works out the **situation** exactly as the playbook defines it: `trend` (up/down/flat: yesterday's close vs. its 20-day average, and the 20-day vs. the 50-day), `gap` (up/down/flat at ±0.3%), `vol` (yesterday's range vs. its 20-day average: high above 1.3×, low below 0.7×), `vix` (calm under 20, nervous 20–30, fear above 30), `time` (open before 10:30, midday until 14:00, late after), `vwap` (above/below), `overnight` (where the 9:30 open sits vs. the London range for SPY/QQQ, or vs. the premarket range for stocks: above/inside/below).
 2. Finds the playbook rules whose `when` conditions all match, and looks **first** for those strategies, with the rule's exit (target and breakeven).
 3. Uses the regime table below only for strategies the playbook can't test (B, E, H, which depend on judgment or news).
 
@@ -20,6 +20,12 @@ When several match, take the rule with the best unseen-data result, then the mos
 - **G** gap and go · **G2** gap fill · **I** prior-day high/low breakout on volume · **J** midday range breakout after 13:30
 - **K** opening drive: a strong first 15 minutes (±0.4%) continued at 9:50 on the right side of VWAP
 - **L** first pullback after a new high/low of day · **M** inside-bar breakout with VWAP
+- **N** London high/low sweep at the NY open · **N2** Asia high/low sweep at the NY open · **P** premarket high/low sweep & reclaim (9:35–11:30)
+
+### Overnight liquidity levels (computed every morning)
+- **Asia range:** 18:00 ET the evening before to 03:00 ET. **London range:** 03:00–08:30 ET. **Premarket range:** 04:00–09:29 ET.
+- Live: SPY/QQQ Asia and London ranges come from Robinhood bars with `bounds: 24_5` (the 24-hour market); premarket from `bounds: extended`. The backtest uses ES/NQ futures scaled to SPY/QQQ, which track closely.
+- These are where stops rest. The open often runs one of them, then reverses; the playbook decides when that's tradeable.
 
 ## 1. Pick the regime (every run, per symbol)
 

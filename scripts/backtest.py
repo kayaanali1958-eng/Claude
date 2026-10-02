@@ -9,6 +9,7 @@
      vol    yesterday's range vs its 20-day average: high / normal / low
      vix    VIX level: calm (<20) / nervous (20-30) / fear (>30)
      time   open (9:30-10:30) / midday (10:30-14:00) / late (14:00-15:30)
+     overnight  where the NY open sits vs. the London range (SPY/QQQ) or premarket range: above / inside / below
      vwap   price above or below VWAP at the signal
 3. LEARNING: for each strategy and side, it tries every situation (one or two conditions at a time)
    and every exit (1.5R, 2R or 3R target, with or without breakeven at +1R). It picks what worked
@@ -84,6 +85,32 @@ def s_sweep_swing(D, i):
         lvl = D.h[highs[-1]]
         if D.h[i] > lvl and D.c[i] < lvl and D.h[highs[-1] + 1:i].max() <= lvl:
             yield "short", D.c[i], D.h[i] + 0.02
+
+
+def _session_sweep(D, i, hi_key, lo_key, start, end):
+    if not start <= D.t[i] <= end or hi_key not in D.lv:
+        return
+    hi, lo = D.lv[hi_key], D.lv[lo_key]
+    run_lo, run_hi = D.l[:i + 1].min(), D.h[:i + 1].max()
+    if run_lo < lo and D.c[i] > lo and D.c[i - 1] <= lo * 1.0005:
+        yield "long", D.c[i], run_lo - 0.02
+    if run_hi > hi and D.c[i] < hi and D.c[i - 1] >= hi * 0.9995:
+        yield "short", D.c[i], run_hi + 0.02
+
+
+@strategy("N London high/low sweep at the NY open")
+def s_london(D, i):
+    yield from _session_sweep(D, i, "lon_hi", "lon_lo", dtime(9, 35), dtime(11, 0)) or ()
+
+
+@strategy("N2 Asia high/low sweep at the NY open")
+def s_asia(D, i):
+    yield from _session_sweep(D, i, "asia_hi", "asia_lo", dtime(9, 35), dtime(11, 0)) or ()
+
+
+@strategy("P premarket high/low sweep & reclaim")
+def s_premarket(D, i):
+    yield from _session_sweep(D, i, "pm_hi", "pm_lo", dtime(9, 35), dtime(11, 30)) or ()
 
 
 @strategy("C opening range breakout + retest")
@@ -225,7 +252,42 @@ def flat_cols(df):
     return df.rename(columns=str.lower)
 
 
+FUTURES = {"SPY": "ES=F", "QQQ": "NQ=F"}
+_fut_cache = {}
+
+
+def session_levels(symbol, ext, d, open_px):
+    """Overnight liquidity for day d, in the symbol's own prices.
+    Asia 18:00 (prev day) to 03:00 ET and London 03:00-08:30 ET come from the index futures for SPY/QQQ
+    (scaled to the ETF by the price ratio at the open). Premarket 04:00-09:29 ET comes from the symbol."""
+    lv = {}
+    pm = ext[(ext.index.date == d) & (ext.index.time >= dtime(4, 0)) & (ext.index.time < dtime(9, 30))]
+    if len(pm):
+        lv["pm_hi"], lv["pm_lo"] = pm.high.max(), pm.low.min()
+    fut_sym = FUTURES.get(symbol)
+    if fut_sym:
+        if fut_sym not in _fut_cache:
+            f = flat_cols(yf.download(fut_sym, period="60d", interval="5m", progress=False, prepost=True, auto_adjust=False))
+            f.index = f.index.tz_convert("America/New_York")
+            _fut_cache[fut_sym] = f
+        f = _fut_cache[fut_sym]
+        day0 = pd.Timestamp(d, tz="America/New_York")
+        at_open = f[(f.index >= day0 + pd.Timedelta(hours=9, minutes=30))].head(1)
+        if len(at_open):
+            ratio = open_px / float(at_open.open.iloc[0])
+            asia = f[(f.index >= day0 - pd.Timedelta(hours=6)) & (f.index < day0 + pd.Timedelta(hours=3))]
+            lon = f[(f.index >= day0 + pd.Timedelta(hours=3)) & (f.index < day0 + pd.Timedelta(hours=8, minutes=30))]
+            if len(asia) > 20:
+                lv["asia_hi"], lv["asia_lo"] = asia.high.max() * ratio, asia.low.min() * ratio
+            if len(lon) > 20:
+                lv["lon_hi"], lv["lon_lo"] = lon.high.max() * ratio, lon.low.min() * ratio
+    return lv
+
+
 def load(symbol, vix_by_day):
+    ext = flat_cols(yf.download(symbol, period="60d", interval="5m", progress=False, prepost=True, auto_adjust=False))
+    if not ext.empty:
+        ext.index = ext.index.tz_convert("America/New_York")
     intra = flat_cols(yf.download(symbol, period="60d", interval="5m", progress=False, prepost=False, auto_adjust=False))
     daily = flat_cols(yf.download(symbol, period="1y", interval="1d", progress=False, auto_adjust=False))
     if intra.empty or daily.empty:
@@ -261,9 +323,13 @@ def load(symbol, vix_by_day):
         D.orh, D.orl = D.h[:3].max(), D.l[:3].min()
         D.orw = D.orh - D.orl
         D.gap = D.o[0] / D.pclose - 1
+        D.lv = session_levels(symbol, ext, d, D.o[0]) if not ext.empty else {}
+        ref = (D.lv.get("lon_hi"), D.lv.get("lon_lo")) if "lon_hi" in D.lv else (D.lv.get("pm_hi"), D.lv.get("pm_lo"))
+        open_vs = ("unknown" if ref[0] is None else "above" if D.o[0] > ref[0] else "below" if D.o[0] < ref[1] else "inside")
         vix = vix_by_day.get(d)
         D.sit = dict(ctx[d], gap="up" if D.gap > 0.003 else "down" if D.gap < -0.003 else "flat",
-                     vix="unknown" if vix is None else "calm" if vix < 20 else "nervous" if vix <= 30 else "fear")
+                     vix="unknown" if vix is None else "calm" if vix < 20 else "nervous" if vix <= 30 else "fear",
+                     overnight=open_vs)
         out.append(D)
     return out
 
@@ -321,7 +387,7 @@ def collect(days):
 # ======================================================================================
 # Learning
 # ======================================================================================
-FEATURES = ["trend", "gap", "vol", "vix", "time", "vwap"]
+FEATURES = ["trend", "gap", "vol", "vix", "time", "vwap", "overnight"]
 
 
 def conditions(df):

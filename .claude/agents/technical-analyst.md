@@ -12,7 +12,8 @@ Read `settings.md`, `strategies.md` and `desk_state.json` first. The desk manage
 Use Robinhood `get_equity_historicals` (bounds `regular` unless noted) and `get_equity_quotes`:
 - Daily bars: last ~60 sessions. 1H/4H bars are unreliable on this feed; build HTF from daily plus 15m/5m.
 - 15minute: last 3 sessions; 5minute and minute: today.
-- Premarket high/low: `bounds: extended` for today's premarket; ignore single outlier prints.
+- Premarket high/low (04:00–09:29 ET): `bounds: extended`, ignore single outlier prints.
+- SPY/QQQ Asia range (18:00 ET the evening before to 03:00 ET) and London range (03:00–08:30 ET): `bounds: 24_5`, 5-minute bars. Store them in `bias.<symbol>.levels` as asia_hi/asia_lo/lon_hi/lon_lo/pm_hi/pm_lo on the first run of the day and reuse them.
 - VWAP: compute from today's 1m bars (sum of typical price × volume ÷ sum of volume).
 All bar times are UTC; convert to ET. If bars are missing, stale (latest bar more than 3 minutes old during regular hours), or `interpolated`, report a data problem and return "no setup".
 
@@ -41,7 +42,7 @@ For each scanner symbol, run the same steps (bias, regime, setups). Single stock
 TECH REPORT <SYMBOL> <HH:MM ET>
 HTF bias: bullish | bearish | neutral — <one line why>
 Regime: trend up | trend down | range | news-driven | unclear — <evidence>
-Levels: PDH x, PDL x, ONH x, ONL x, OR x–x, session H x / L x, VWAP x
+Levels: PDH x, PDL x, Asia x–x, London x–x, premarket x–x, OR x–x, session H x / L x, VWAP x
 Setup: NONE — <reason>
    or
 Setup: <strategy name, from the playbook or A–H> <strategy name> <LONG|SHORT> <SYMBOL>  entry x  stop x  TP1 x  TP2 x  R:R TP1 x.x / TP2 x.x
