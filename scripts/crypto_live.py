@@ -20,8 +20,8 @@ def _claude():
     return os.environ.get("CLAUDE_BIN") or shutil.which("claude") or "claude"
 
 
-def run(task):
-    allowed = [p + t for p in PREFIXES for t in TOOLS]
+def run(task, tools=TOOLS):
+    allowed = [p + t for p in PREFIXES for t in tools]
     prompt = (f"You are the crypto execution step of a trading desk. Do exactly this task and nothing else.\n"
               f"{ACCOUNT}\nAlways call preview_crypto_order before place_crypto_order and abort if the preview shows "
               f"any error or warning, or a price more than 1% away from the one given.\nTASK: {task}\n"
@@ -66,3 +66,10 @@ def sell_all(coin, stop_order_id, reason):
         f"(quantity = the position's full available amount, ref_id '{uuid.uuid4()}') and wait for the fill. "
         f"If the stop order already filled, don't sell again. "
         f"RESULT keys: ok, sold_qty, avg_price (the price the position was actually closed at), how ('stop' or 'market').")
+
+
+def balance():
+    """The account's cash available for crypto, read only (no order tools)."""
+    return run("Report how much of the account's own cash can be spent on crypto right now: settled cash only, "
+               "never margin or borrowed buying power (no leverage). Do not place, preview or cancel anything. RESULT keys: ok, cash (a number in dollars).",
+               tools=["get_accounts", "get_portfolio"])

@@ -60,7 +60,10 @@ def log(text, alert_title=None):
 def load_state():
     if STATE.exists():
         return json.loads(STATE.read_text(encoding="utf-8"))
-    start = float(os.environ.get("CRYPTO_LIVE_MAX") or 0) if LIVE else START
+    start = START
+    if LIVE:
+        cap = (os.environ.get("CRYPTO_LIVE_MAX") or "0").strip().lower()
+        start = 0.0 if cap == "all" else float(cap)          # "all": set from the account balance below
     return dict(start=start, cash=start, peak=start, paused=False, positions=[], closed=[],
                 day=dict(date="", realized=0.0), last_signal={})
 
@@ -137,13 +140,34 @@ def manage(st, data):
                 f"{p['strategy']}", f"Crypto {'win' if pnl > 0 else 'loss'}: {p['coin']} ${pnl:+.2f}")
 
 
+def sync_balance(st, today):
+    """CRYPTO_LIVE_MAX=all: once a day, set the book's cash to the account's crypto cash. A deposit or
+    withdrawal moves start and peak by the same amount, so it never counts as profit, loss or drawdown."""
+    if not LIVE or (os.environ.get("CRYPTO_LIVE_MAX") or "").strip().lower() != "all" or st.get("balance_date") == today:
+        return
+    res = crypto_live.balance()
+    try:
+        cash = float(res.get("cash"))
+    except (TypeError, ValueError):
+        log(f"Balance check failed: {res.get('error') or res}", "Crypto LIVE: balance check failed")
+        return
+    st["balance_date"] = today
+    delta = round(cash - st["cash"], 2)
+    if abs(delta) >= 0.01:
+        st["cash"] = cash
+        st["start"] = round(st["start"] + delta, 2)
+        st["peak"] = round(st["peak"] + delta, 2)
+        log(f"Book synced to the account: cash ${cash:.2f} ({'added' if delta > 0 else 'removed'} ${abs(delta):.2f})")
+
+
 def open_new(st, data, rules):
     prices = {c: float(d.close.iloc[-1]) for c, d in data.items()}
     eq = equity(st, prices)
     if st["paused"] or (ROOT / "STOP").exists():
         return
     if LIVE and st["start"] <= 0:
-        log("CRYPTO_MODE is live but CRYPTO_LIVE_MAX is not set in .env: no live trades.", "Crypto LIVE not configured")
+        log("CRYPTO_MODE is live but the book has no money: set CRYPTO_LIVE_MAX in .env (a dollar amount or all).",
+            "Crypto LIVE not configured")
         return
     if st["day"]["realized"] <= -DAILY_LOSS * st["start"]:
         return
@@ -281,6 +305,7 @@ def main():
         if st["positions"]:
             print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')}  {'LIVE' if LIVE else 'paper'}  managed {len(st['positions'])} open position(s)")
         return
+    sync_balance(st, today)
     rules = refresh_playbook()
     btc = fetch("BTC")
     btc_trend = cl.daily_trend_series(btc)
