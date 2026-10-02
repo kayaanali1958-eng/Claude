@@ -34,7 +34,7 @@ PLIST
 <plist version="1.0"><dict>
   <key>Label</key><string>com.claude.cryptodesk</string>
   <key>ProgramArguments</key><array><string>/bin/sh</string><string>-c</string><string>mkdir -p logs; python3 scripts/crypto_desk.py >> logs/crypto_desk.log 2>&1</string></array>
-  <key>StartCalendarInterval</key><dict><key>Minute</key><integer>2</integer></dict>
+  <key>StartInterval</key><integer>300</integer>
   <key>WorkingDirectory</key><string>$DESK_DIR</string>
 </dict></plist>
 CPLIST
@@ -46,7 +46,7 @@ CPLIST
     ;;
   Linux)
     LINE="*/5 * * * * CLAUDE_BIN=$CLAUDE_BIN PATH=$(dirname "$CLAUDE_BIN"):/usr/local/bin:/usr/bin:/bin $RUNNER # claude-trading-desk"
-    CLINE="2 * * * * cd $DESK_DIR && mkdir -p logs && python3 scripts/crypto_desk.py >> logs/crypto_desk.log 2>&1 # claude-crypto-desk"
+    CLINE="*/5 * * * * cd $DESK_DIR && mkdir -p logs && python3 scripts/crypto_desk.py >> logs/crypto_desk.log 2>&1 # claude-crypto-desk"
     ( crontab -l 2>/dev/null | grep -v 'claude-trading-desk' | grep -v 'claude-crypto-desk' ; echo "$LINE" ; echo "$CLINE" ) | crontab -
     echo "Crypto desk installed (hourly). Turn off with:  crontab -l | grep -v claude-crypto-desk | crontab -"
     echo "Installed (cron). Turn off with:"

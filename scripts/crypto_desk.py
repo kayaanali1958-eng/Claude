@@ -193,6 +193,61 @@ def open_new(st, data, rules):
             break
 
 
+def live_price(coin):
+    """Latest trade price from Coinbase's public ticker (no key needed)."""
+    import urllib.request
+    with urllib.request.urlopen(f"https://api.exchange.coinbase.com/products/{coin}-USD/ticker", timeout=10) as r:
+        return float(json.load(r)["price"])
+
+
+def quick_manage(st):
+    """Between hourly runs: manage open positions on the live price (target, breakeven, stop, 48h)."""
+    for p in list(st["positions"]):
+        try:
+            px = live_price(p["coin"])
+        except Exception as e:
+            log(f"Price error {p['coin']}: {e}")
+            continue
+        why = None
+        if px <= p["stop"]:
+            why = "stop"
+        elif px >= p["target"]:
+            why = "target"
+        elif (datetime.now(timezone.utc) - pd.Timestamp(p["opened"]).to_pydatetime()).total_seconds() >= cl.MAX_HOLD * 3600:
+            why = "48h limit"
+        if why is None:
+            if p["be"] and px >= p["entry"] + p["risk"] and p["stop"] < p["entry"]:
+                p["stop"] = p["entry"]
+                if LIVE:
+                    res = crypto_live.move_stop(p["coin"], p["qty"], p["stop_order_id"], p["stop"])
+                    if res.get("ok"):
+                        p["stop_order_id"], p["live_stop"] = res.get("stop_order_id"), p["stop"]
+                        log(f"LIVE stop on {p['coin']} raised to breakeven {p['stop']:,.4f}")
+                    else:
+                        p["stop"] = p.get("live_stop", p["stop"])
+                        log(f"LIVE stop move FAILED on {p['coin']}: {res.get('error')}", "Crypto LIVE: check stop")
+                else:
+                    log(f"PAPER stop on {p['coin']} raised to breakeven {p['stop']:,.4f}")
+            continue
+        exit_px = p["stop"] if why == "stop" else px
+        if LIVE:
+            res = crypto_live.sell_all(p["coin"], p["stop_order_id"], why)
+            if not res.get("ok"):
+                log(f"LIVE exit FAILED on {p['coin']} ({why}): {res.get('error')} - will retry", "Crypto LIVE: exit failed, check app")
+                continue
+            exit_px = float(res.get("avg_price") or exit_px)
+        proceeds = p["qty"] * exit_px * (1 - cl.FEE)
+        pnl = proceeds - p["cost"]
+        st["cash"] += proceeds
+        st["day"]["realized"] += pnl
+        r = pnl / (p["qty"] * p["risk"])
+        st["positions"].remove(p)
+        now = datetime.now(timezone.utc).isoformat()
+        st["closed"].append(dict(p, exit=exit_px, reason=why, pnl=round(pnl, 2), R=round(r, 2), closed=now))
+        log(f"{'LIVE' if LIVE else 'PAPER'} SELL {p['qty']:.6f} {p['coin']} @ {exit_px:,.4f} ({why}) | P&L ${pnl:+.2f} ({r:+.2f}R) | {p['strategy']}",
+            f"Crypto {'win' if pnl > 0 else 'loss'}: {p['coin']} ${pnl:+.2f}")
+
+
 def main():
     for stream in (sys.stdout, sys.stderr):
         try:
@@ -210,6 +265,14 @@ def main():
             log(f"Day {st['day']['date']}: {len(closed)} trades, realized ${st['day']['realized']:+.2f}, cash ${st['cash']:.2f}",
                 "Crypto daily recap" if closed else None)
         st["day"] = dict(date=today, realized=0.0)
+    hourly = "--full" in sys.argv or datetime.now().minute < 5
+    if not hourly:                                   # 5-minute check: open positions only
+        if st["positions"]:
+            quick_manage(st)
+        STATE.write_text(json.dumps(st, indent=2, default=str), encoding="utf-8")
+        if st["positions"]:
+            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')}  {'LIVE' if LIVE else 'paper'}  managed {len(st['positions'])} open position(s)")
+        return
     rules = refresh_playbook()
     btc = fetch("BTC")
     btc_trend = cl.daily_trend_series(btc)
