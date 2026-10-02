@@ -27,6 +27,13 @@ Paper books (where trades are executed). Every QQQ signal opens a trade in both 
 
 - SPY signals have no vehicle a $500 book can afford; log them as "signal only" for reference.
 
+## Stocks book (paper)
+Start: $500 paper. Trades the market-scanner's "stocks in play" (up to 5 symbols a day), the actual shares.
+- Bullish setups only: no shorting, and no inverse funds for single stocks. Bearish stock setups are logged as signal only.
+- Per-trade cash limit: the whole book ($500), so the scanner only picks stocks priced $10–$500.
+- Same risk rules as the other books: 1% risk ($5), half size where strategies.md says so, max daily loss $15, max 3 trades a day.
+- Single stocks move more than ETFs: the stop must sit beyond the setup's invalidation level and at least 0.3% from entry.
+
 ### Level mapping (done by risk-manager at decision time)
 Let m = level_QQQ ÷ price_QQQ_now − 1 (the level's % distance from QQQ now).
 - QQQM: level_v = level_QQQ × (price_QQQM_now ÷ price_QQQ_now)

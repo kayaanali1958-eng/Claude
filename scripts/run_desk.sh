@@ -22,7 +22,7 @@ fi
 trap 'rm -rf "$LOCK"' EXIT
 
 # Order-placing tools are granted only when settings.md says exactly "MODE: live".
-RH_READ="get_accounts get_portfolio get_equity_positions get_equity_orders get_equity_quotes get_equity_historicals get_index_quotes get_index_historicals get_earnings_calendar get_politician_trades get_equity_fundamentals review_equity_order"
+RH_READ="get_accounts get_portfolio get_equity_positions get_equity_orders get_equity_quotes get_equity_historicals get_index_quotes get_index_historicals get_earnings_calendar get_politician_trades get_equity_fundamentals get_scans get_scanner_filter_specs get_scanner_datapoints preview_scan run_scan review_equity_order"
 RH_WRITE="place_equity_order cancel_equity_order"
 RH_TOOLS="$RH_READ"
 if grep -qx 'MODE: live' settings.md; then RH_TOOLS="$RH_READ $RH_WRITE"; fi

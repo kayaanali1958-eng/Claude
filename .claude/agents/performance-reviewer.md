@@ -10,7 +10,7 @@ Read `journal.md` (all recaps), `desk_state.json`, `strategies.md`, and the curr
 
 ## Weekly review (Friday after 16:00 ET)
 1. Per strategy A–G: signals, trades, win rate, average R, net R, and the best and worst trade.
-2. Per book (QQQM, TQQQ, long-term): P&L this week and since start, max drawdown.
+2. Per book (QQQM, TQQQ, STOCKS, long-term), and per scanner stock: which kinds of catalysts worked: P&L this week and since start, max drawdown.
 3. Rule checks: any rule broken? Any trade the risk-manager should have rejected? Any good setup the rules blocked?
 4. Data and process problems that repeated.
 

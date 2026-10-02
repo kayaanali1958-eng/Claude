@@ -124,6 +124,19 @@
       "open_positions": [],
       "closed_trades": [],
       "desk_closed": false
+    },
+    "STOCKS": {
+      "start_cash": 500,
+      "cash": 500,
+      "pnl": {
+        "realized": 0,
+        "open": 0,
+        "total": 0
+      },
+      "working_orders": [],
+      "open_positions": [],
+      "closed_trades": [],
+      "desk_closed": false
     }
   },
   "regime": {
@@ -143,5 +156,6 @@
     "contributions": 0,
     "holdings": [],
     "history": []
-  }
+  },
+  "scanner": {}
 }

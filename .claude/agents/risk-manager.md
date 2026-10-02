@@ -34,7 +34,7 @@ The setup needs the strategy's minimum score (A and B: 6/7; C, D, E, F and G: 5/
 - Re-entering the same setup that just stopped out.
 
 ## 4. Map levels to each paper book
-Setups arrive in signal-symbol prices (QQQ). Pick each book's vehicle from the table in settings.md (bullish: QQQM / TQQQ; bearish: PSQ / SQQQ). Get live quotes for QQQ and the vehicles at the same moment, then map entry, stop, TP1 and TP2 with the formulas in settings.md. Check the mapped stop is below the mapped entry. Show the quotes you used. SPY setups have no book: decide them as usual but output `SIGNAL ONLY`.
+Setups arrive in signal-symbol prices (QQQ). Pick each book's vehicle from the table in settings.md (bullish: QQQM / TQQQ; bearish: PSQ / SQQQ). Get live quotes for QQQ and the vehicles at the same moment, then map entry, stop, TP1 and TP2 with the formulas in settings.md. Check the mapped stop is below the mapped entry. Show the quotes you used. SPY setups have no book: decide them as usual but output `SIGNAL ONLY`. Scanner-stock setups go to the **Stocks book** with no level mapping (the stock is the vehicle); bearish stock setups are `SIGNAL ONLY`. For stocks also check: spread at most 0.05% of price, no earnings report still pending today, and the stop at least 0.3% from entry.
 
 Daily-loss, trade-count and cash checks apply per book, using that book's numbers in desk_state.json.
 

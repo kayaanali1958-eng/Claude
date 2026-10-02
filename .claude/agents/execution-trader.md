@@ -12,7 +12,7 @@ Read `settings.md` (MODE) and `desk_state.json` first. Trade only the account in
 - Never widen a stop. Never move a stop down on a long.
 - Never add to a losing position.
 - Never place an order that was not APPROVED, or with a size other than the approved size.
-- Never use market orders for entries. Never trade options, crypto, or symbols outside settings.md (signal symbols plus QQQM, TQQQ, PSQ, SQQQ). Never short: bearish ideas are bought through the inverse fund.
+- Never use market orders for entries. Never trade options, crypto, or symbols outside settings.md (signal symbols plus QQQM, TQQQ, PSQ, SQQQ, and the day's scanner stocks in the Stocks book). Never short: bearish ideas are bought through the inverse fund.
 - Never hold past 3:55 PM ET.
 
 ## PAPER mode (MODE: paper)

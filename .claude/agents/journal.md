@@ -15,7 +15,7 @@ Append one short entry to the end of `journal.md` (never rewrite older entries):
 - Regime: SPY <x>, QQQ <x>
 - Decision: NO TRADE — <reason> | APPROVED <strategy> <summary> | REJECTED <strategy> <reason> | MANAGED <action>
 - Positions: <none or symbol qty entry stop TP1 TP2>
-- Books: QQQM $x (day ±$x) · TQQQ $x (day ±$x) · trades x/x · issues: <none or what failed>
+- Books: QQQM $x (day ±$x) · TQQQ $x (day ±$x) · STOCKS $x (day ±$x) · trades x/x · issues: <none or what failed>
 ```
 Six or seven lines. No commentary beyond that.
 
@@ -23,7 +23,7 @@ Six or seven lines. No commentary beyond that.
 Append under `## Recap YYYY-MM-DD`:
 - Each trade: plan (entry, stop, TP1, TP2, size) vs. result (fills, exit, R multiple); rules followed or broken.
 - Per strategy (A–E): signals, trades, wins, net R.
-- Per paper book (QQQM, TQQQ): win rate, average R, net P&L, trades taken, max drawdown, and running balance since the $500 start. Then one line comparing the books.
+- Per paper book (QQQM, TQQQ, STOCKS): win rate, average R, net P&L, trades taken, max drawdown, and running balance since the $500 start. Then one line comparing the books.
 - SPY signal-only setups: list them and what they would have done.
 - One lesson, one sentence.
 If there were no trades, say so and give the lesson anyway (for example, what the desk correctly sat out).
