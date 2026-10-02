@@ -35,6 +35,11 @@ Let m = level_QQQ ÷ price_QQQ_now − 1 (the level's % distance from QQQ now).
 - SQQQ: level_v = price_SQQQ_now × (1 − 3m)
 For a bearish signal the QQQ stop is above entry, so the inverse stop lands below entry, which makes it an ordinary long stop. Round to cents.
 
+## Long-term book (paper, run by portfolio-manager)
+Start: $500 paper. Monthly contribution: $100 (paper), invested on the first trading day of each month.
+Core fund: SPY (at least 80% of the book). Satellites: congress-trades ideas scoring 4–5, max 20% of the book and 5% per name.
+This book is separate from the day-trading books and never uses leverage, inverse funds or options.
+
 Account: Agentic (Robinhood account ending 0701, the only account the agent may trade)
 
 ## Hard rules

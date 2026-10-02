@@ -17,7 +17,7 @@ if (Test-Path $lock) {
 New-Item -ItemType Directory $lock | Out-Null
 try {
   # Order-placing tools are granted only when settings.md says exactly "MODE: live".
-  $read  = 'get_accounts get_portfolio get_equity_positions get_equity_orders get_equity_quotes get_equity_historicals get_index_quotes get_index_historicals get_earnings_calendar review_equity_order'.Split(' ')
+  $read  = 'get_accounts get_portfolio get_equity_positions get_equity_orders get_equity_quotes get_equity_historicals get_index_quotes get_index_historicals get_earnings_calendar get_politician_trades get_equity_fundamentals review_equity_order'.Split(' ')
   $write = 'place_equity_order cancel_equity_order'.Split(' ')
   $rh = $read
   if (Select-String -Path settings.md -Pattern '^MODE: live$' -Quiet) { $rh = $read + $write }

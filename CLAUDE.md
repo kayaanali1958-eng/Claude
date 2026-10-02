@@ -11,7 +11,19 @@ The prompt from the timer gives you the current date and time in ET. If it doesn
 - `strategies.md`: the regime table and strategies A–E. The technical-analyst and risk-manager follow it; read only.
 - `desk_state.json`: the desk's memory between runs. You own it.
 - `journal.md`: written by the `journal` subagent only.
-- `.claude/agents/`: news-analyst, technical-analyst, risk-manager, execution-trader, journal.
+- `lessons.md`: the performance-reviewer's weekly findings. Proposals marked `[x]` (approved by the user) are rules in force.
+- `.claude/agents/`: news-analyst, policy-watch, macro-strategist, congress-trades, technical-analyst, risk-manager, execution-trader, portfolio-manager, journal, performance-reviewer.
+
+## Team schedule
+| When | Who | Why |
+|---|---|---|
+| First run of the day (new day) | news-analyst, macro-strategist, congress-trades, policy-watch | Premarket: calendar and blackouts, macro lean and size note, politician watchlist, overnight political headlines |
+| Every run, 9:00–15:55 | policy-watch (only if its last check is 15+ min old) | Catch White House / tariff / geopolitical headlines fast; may add an unscheduled blackout |
+| Every run | execution-trader, technical-analyst, risk-manager, journal | The normal trading cycle below |
+| First run after 16:00 | journal (daily recap), then portfolio-manager | Day recap; long-term book actions at the close |
+| First run after 16:00 on Friday | performance-reviewer | Weekly grades and proposals in lessons.md |
+
+Keep runs light: reuse stored reports when they are fresh, and skip the technical scan when no strategy can be allowed (inside a blackout, after 15:30, or desk closed).
 
 Robinhood tools may appear as `mcp__robinhood-trading__*`, `mcp__RobinHood__*`, or `mcp__claude_ai_RobinHood__*`, depending on how the server is connected. Use whichever is available. Trade only the Agentic account named in settings.md.
 
@@ -20,9 +32,9 @@ Robinhood tools may appear as `mcp__robinhood-trading__*`, `mcp__RobinHood__*`, 
    - If `desk_state.json` is empty (`{}`) or its `date` is not today (ET), start a new day: carry over `day_trades_5d` (drop entries older than 5 business days) and reset everything else to the schema below. Then have **news-analyst** do the premarket report and store its condition and blackouts in state.
    - If the market is closed today (weekend or exchange holiday, or no regular-hours bars by 9:40 AM ET), log "market closed" through journal and stop.
 2. **Daily loss check.** If realized + open P&L ≤ −Max daily loss: have **execution-trader** cancel all orders and close all positions, set `desk_closed: true` and `desk_closed_reason`, have **journal** log it, and stop. If `desk_closed` is already true, take no new trades; only make sure you are flat.
-3. **End of day.** If it is 3:55 PM ET or later: have **execution-trader** flatten (cancel all orders, close all positions). After 4:00 PM ET, if `recap_written` is false, have **journal** write the daily recap and set `recap_written: true`. Stop.
+3. **End of day.** If it is 3:55 PM ET or later: have **execution-trader** flatten (cancel all orders, close all positions). After 4:00 PM ET, if `recap_written` is false, have **journal** write the daily recap and set `recap_written: true`, then have **portfolio-manager** run the long-term book and save its actions under `long_term`. On Fridays, then have **performance-reviewer** update `lessons.md`. Stop.
 4. **Normal cycle** (before 3:55 PM ET):
-   1. **news-analyst**: refresh only if the stored report is older than 60 minutes or a blackout is within 30 minutes; otherwise reuse the stored report.
+   1. **news-analyst**: refresh only if the stored report is older than 60 minutes or a blackout is within 30 minutes; otherwise reuse the stored report. **policy-watch**: run if its last check is 15+ minutes old; add any unscheduled blackout it returns to `news.blackouts`, and treat HIGH headline risk as a news-driven regime.
    2. **execution-trader**: manage open positions and working orders first (fills, stops, TP1/TP2, 15-minute cancels).
    3. If it is before 3:30 PM ET and trades remain today: **technical-analyst** for SPY and QQQ (regime first, then the strategies strategies.md allows).
    4. For each setup it returns: **risk-manager**. Pass it the news report, the tech report, and the current state.
@@ -51,9 +63,14 @@ Give each subagent what it needs in the prompt: current ET time, MODE, and the r
     "QQQM": {"start_cash": 500, "cash": 500, "pnl": {"realized": 0, "open": 0, "total": 0}, "working_orders": [], "open_positions": [], "closed_trades": [], "desk_closed": false},
     "TQQQ": {"start_cash": 500, "cash": 500, "pnl": {"realized": 0, "open": 0, "total": 0}, "working_orders": [], "open_positions": [], "closed_trades": [], "desk_closed": false}
   },
+  "macro": {"date": "YYYY-MM-DD", "lean": "bullish|bearish|neutral", "risk": "risk-on|mixed|risk-off", "size_note": "normal|half"},
+  "policy": {"last_check_et": "HH:MM", "headline_risk": "none|low|HIGH", "headlines": []},
+  "congress_watchlist": {"date": "YYYY-MM-DD", "ideas": []},
+  "long_term": {"start": 500, "cash": 500, "contributions": 0, "holdings": [], "history": []},
   "errors": []
 }
 ```
+- `long_term` carries over between days (never reset). `macro`, `policy` and `congress_watchlist` refresh each new day.
 - Each paper book carries its own cash between days: on a new day, set `start_cash` to the previous day's ending `cash` and reset that book's P&L and trade lists. The daily-loss check (step 2) runs per book; one book hitting its limit closes only that book.
 - `signals_today[]`: `{time_et, symbol, decision, reason}` for every setup the technical analyst returned, including SPY signal-only ones.
 - `working_orders[]`: `{symbol, side, qty, limit, order_id|null, placed_et, cancel_after_et, stop, tp1, tp2}`

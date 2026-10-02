@@ -133,5 +133,15 @@
   },
   "watch_after_1345": {
     "status": "cancelled 14:08 - news move failed (SPY full retrace, QQQ 88%); E capped at 4/6"
+  },
+  "macro": {},
+  "policy": {},
+  "congress_watchlist": {},
+  "long_term": {
+    "start": 500,
+    "cash": 500,
+    "contributions": 0,
+    "holdings": [],
+    "history": []
   }
 }

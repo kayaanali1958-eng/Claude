@@ -1,6 +1,6 @@
 # Strategy Playbook
 
-The technical-analyst picks the regime first, then only looks for the strategies allowed in that regime. The risk-manager scores each setup with that strategy's checklist. If the regime is unclear, the answer is STAND ASIDE.
+The technical-analyst picks the regime first (strategies A–G), then only looks for the strategies allowed in that regime. The risk-manager scores each setup with that strategy's checklist. If the regime is unclear, the answer is STAND ASIDE.
 
 All strategies are long-only in execution. A bearish setup is taken by **buying an inverse ETF** (see settings.md), never by shorting.
 
@@ -8,13 +8,17 @@ All strategies are long-only in execution. A bearish setup is taken by **buying 
 
 | Regime | How to recognize it (5m chart, today) | Allowed strategies |
 |---|---|---|
-| **Trend up** | HTF bias bullish; 5m higher highs and higher lows; price above VWAP and above PDL/ONL | A (with trend), B, C long |
-| **Trend down** | HTF bias bearish; 5m lower highs and lower lows; price below VWAP and below PDL/ONL | A (with trend), B, C short (inverse) |
-| **Range / chop** | At least 2 touches of both a range high and a range low in the last 60 min; VWAP flat; range ≥ 0.25% wide | D only |
-| **News-driven** | News-analyst condition is news-driven and a major release or speaker is within 60 min, or was in the last 30 min | E only; size halved |
+| **Trend up** | HTF bias bullish; 5m higher highs and higher lows; price above VWAP and above PDL/ONL | A (with trend), B, C, F, G long |
+| **Trend down** | HTF bias bearish; 5m lower highs and lower lows; price below VWAP and below PDL/ONL | A (with trend), B, C, F, G short (inverse) |
+| **Range / chop** | At least 2 touches of both a range high and a range low in the last 60 min; VWAP flat; range ≥ 0.25% wide | D, G (gap fill only) |
+| **News-driven** | News-analyst condition is news-driven and a major release or speaker is within 60 min, or was in the last 30 min; or policy-watch reports HIGH headline risk | E only; size halved |
 | **Unclear** | None of the above clearly | STAND ASIDE |
 
-Fridays and the afternoon before NFP/CPI/FOMC: use half size for every strategy.
+Fridays and the afternoon before NFP/CPI/FOMC: use half size for every strategy. The macro-strategist's lean is a tiebreaker only: when two setups compete, prefer the one in the direction of the lean.
+
+Where the styles come from: A and B are the ICT / TJR-style liquidity model, C is the classic opening range breakout, D is range mean reversion, E is post-news continuation, F is the VWAP playbook used by institutional desks, G covers the common opening gap plays.
+
+**Picking between setups:** take at most one new trade per signal symbol at a time. If several qualify, take the highest checklist score, then the higher R:R to TP2, then the one aligned with the macro lean.
 
 ## 2. Strategies
 
@@ -53,6 +57,21 @@ Fridays and the afternoon before NFP/CPI/FOMC: use half size for every strategy.
 - **Stop:** back inside the pre-news range. **TP1:** 1× pre-news range height. **TP2:** next liquidity.
 - **Risk:** half of normal. **Min R:R:** 2:1 to TP2.
 - **Checklist (need 5/6):** blackout over · 5m close beyond pre-news range · retest holds · direction matches HTF bias or the news clearly changed it · ≥2:1 · no second release within 30 min.
+
+### F. VWAP reclaim / reject (trend day)
+- **When:** 10:00–15:00, regime = trend.
+- **Long:** in a trend-up regime, price pulls back below VWAP, then a 5m candle closes back above VWAP and the next 1m pullback holds above it. Enter at VWAP + a few cents.
+- **Short (inverse):** mirror in trend down: a 5m close back below VWAP after a pop above it.
+- **Stop:** beyond the pullback extreme. **TP1:** the session high (low). **TP2:** next HTF liquidity.
+- **Min R:R:** 2:1 to TP2.
+- **Checklist (need 5/6):** regime is trend · VWAP sloping in trend direction · 5m reclaim/reject close · 1m hold confirms · ≥2:1 · outside blackout.
+
+### G. Opening gap play
+- **When:** entries 9:35–10:30 only. Gap = today's open vs prior close, at least 0.3%.
+- **Gap and go:** gap in the HTF bias direction, first 5m candle closes in the gap direction, and the first pullback holds above (below) the opening print. Stop beyond the pullback; TP1 = premarket high (low); TP2 = next HTF liquidity.
+- **Gap fill:** gap against the HTF bias, or into a major level (PDH/PDL, weekly high/low), and the first 15 minutes fail to extend. Enter on a 5m close back toward the prior close; stop beyond the opening extreme; TP1 = half the gap; TP2 = prior close (the full fill).
+- **Min R:R:** 2:1 to TP2.
+- **Checklist (need 5/6):** gap ≥ 0.3% · direction rule above met · first-candle / failure-to-extend confirmation · clear stop level · ≥2:1 · outside blackout.
 
 ## 3. Always stand aside when
 - The data-quality check fails (stale, interpolated, or mismatched prices).

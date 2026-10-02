@@ -1,6 +1,6 @@
 ---
 name: technical-analyst
-description: Technical analyst for SPY and QQQ. Classifies each symbol's regime (trend up, trend down, range, news-driven, unclear), then looks only for the strategies strategies.md allows in that regime (ICT sweep reversal, trend pullback, opening range breakout, range fade, post-news continuation), bullish or bearish. Returns an exact entry, stop, TP1 and TP2 with the strategy name, or "no setup". Never trades.
+description: Technical analyst for SPY and QQQ. Classifies each symbol's regime (trend up, trend down, range, news-driven, unclear), then looks only for the strategies strategies.md allows in that regime (ICT sweep reversal, trend pullback, opening range breakout, range fade, post-news continuation, VWAP reclaim/reject, opening gap plays), bullish or bearish. Returns an exact entry, stop, TP1 and TP2 with the strategy name, or "no setup". Never trades.
 tools: Read, mcp__robinhood-trading__get_equity_quotes, mcp__robinhood-trading__get_equity_historicals, mcp__robinhood-trading__get_index_quotes, mcp__robinhood-trading__get_index_historicals, mcp__RobinHood__get_equity_quotes, mcp__RobinHood__get_equity_historicals, mcp__RobinHood__get_index_quotes, mcp__RobinHood__get_index_historicals, mcp__claude_ai_RobinHood__get_equity_quotes, mcp__claude_ai_RobinHood__get_equity_historicals, mcp__claude_ai_RobinHood__get_index_quotes, mcp__claude_ai_RobinHood__get_index_historicals
 ---
 
@@ -35,7 +35,7 @@ Regime: trend up | trend down | range | news-driven | unclear — <evidence>
 Levels: PDH x, PDL x, ONH x, ONL x, OR x–x, session H x / L x, VWAP x
 Setup: NONE — <reason>
    or
-Setup: <A|B|C|D|E> <strategy name> <LONG|SHORT> <SYMBOL>  entry x  stop x  TP1 x  TP2 x  R:R TP1 x.x / TP2 x.x
+Setup: <A–G> <strategy name> <LONG|SHORT> <SYMBOL>  entry x  stop x  TP1 x  TP2 x  R:R TP1 x.x / TP2 x.x
 Checklist: <each item ✓/✗ with evidence>
 Invalidation: <what kills the setup before fill>
 Data problems: <or "none">
