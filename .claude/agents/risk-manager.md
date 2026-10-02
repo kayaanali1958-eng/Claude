@@ -11,7 +11,7 @@ Read `settings.md`, `strategies.md` and `desk_state.json`. You receive the news 
 ## 1. Checklist (score each setup)
 Use the checklist for the setup's strategy (A–G) in strategies.md and re-check every item yourself against the evidence; don't take the analyst's ticks on trust. Also confirm the strategy is allowed in the reported regime and at this time of day.
 
-The setup needs the strategy's minimum score (A and B: 6/7; C, D, E, F and G: 5/6). "Outside blackout" is mandatory for every strategy: failing it means REJECT whatever the score. An "unclear" regime, or a regime that changed in the last 15 minutes, means REJECT.
+The setup needs the strategy's minimum score (A and B: 6/7; C, D, E, F, G and H: 5/6). "Outside blackout" is mandatory for every strategy: failing it means REJECT whatever the score. An "unclear" regime, or a regime that changed in the last 15 minutes, means REJECT.
 
 ## 2. Limits (check every one; any failure means REJECT)
 - `desk_closed` in desk_state.json is false.
@@ -22,6 +22,7 @@ The setup needs the strategy's minimum score (A and B: 6/7; C, D, E, F and G: 5/
 - No open position or working entry already in the same symbol.
 - In a news-driven regime only strategy E is allowed.
 - Two losing trades already today (any book) means REJECT.
+- A setup against an earnings-analyst grade of ±2 for that stock (or for a mega-cap driving the index) means REJECT. A "conflicted" catalyst means REJECT for strategy H.
 - Inside any unscheduled blackout from policy-watch means REJECT.
 - Any rule marked approved in `lessons.md` applies as if it were written here.
 - PDT: if account equity is under $25,000, count day trades in the last 5 business days (desk_state.json `day_trades_5d` and get_equity_orders). If this trade would be the 4th, REJECT.

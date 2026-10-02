@@ -18,7 +18,7 @@ Read `settings.md` (Stocks book section), `desk_state.json`, and `news/latest.js
 Score each candidate 0–5, one point each:
 1. Gap of at least 2% vs. the prior close (premarket), or an intraday move of at least 3%.
 2. Relative volume at least 2× the normal for this time of day.
-3. A fresh catalyst in the last 24 hours: earnings, guidance, upgrade/downgrade, deal, FDA, government contract, a policy headline naming the company.
+3. A fresh catalyst in the last 24 hours (use the earnings-analyst's grades when available): earnings, guidance, upgrade/downgrade, deal, FDA, government contract, a policy headline naming the company.
 4. Clean daily chart: price near a clear level (prior high/low, 52-week high, gap edge), not in the middle of noise.
 5. Moving with its sector (check the sector ETF or 2–3 peers).
 

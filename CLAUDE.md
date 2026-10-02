@@ -13,13 +13,14 @@ The prompt from the timer gives you the current date and time in ET. If it doesn
 - `journal.md`: written by the `journal` subagent only.
 - `news_feeds.md`: the fast news feeds policy-watch and news-analyst read every run.
 - `lessons.md`: the performance-reviewer's weekly findings. Proposals marked `[x]` (approved by the user) are rules in force.
-- `.claude/agents/`: market-scanner, news-analyst, policy-watch, macro-strategist, congress-trades, technical-analyst, risk-manager, execution-trader, portfolio-manager, journal, performance-reviewer.
+- `.claude/agents/`: market-scanner, earnings-analyst, news-analyst, policy-watch, macro-strategist, congress-trades, technical-analyst, risk-manager, execution-trader, portfolio-manager, journal, performance-reviewer.
 
 ## Team schedule
 | When | Who | Why |
 |---|---|---|
 | First run of the day (new day) | news-analyst, macro-strategist, congress-trades, policy-watch | Premarket: calendar and blackouts, macro lean and size note, politician watchlist, overnight political headlines |
-| 9:00–9:25, then every 30 min until 15:00 | market-scanner | Stocks in play: up to 5 liquid large caps with a gap, volume and a catalyst; store the list in `scanner` |
+| 9:00–9:25, then every 30 min until 15:00 | market-scanner, then earnings-analyst on its list | Stocks in play and the direction their news/earnings support; store grades in `scanner` |
+
 | Every run, 9:00–15:55 | policy-watch (fast feeds in `news_feeds.md`; web search only to confirm) | Catch Fed, BLS, White House, tariff and breaking headlines within minutes; may add an unscheduled blackout |
 | Every run | execution-trader, technical-analyst, risk-manager, journal | The normal trading cycle below |
 | First run after 16:00 | journal (daily recap), then portfolio-manager | Day recap; long-term book actions at the close |
@@ -36,7 +37,8 @@ Robinhood tools may appear as `mcp__robinhood-trading__*`, `mcp__RobinHood__*`, 
 2. **Daily loss check.** If realized + open P&L ≤ −Max daily loss: have **execution-trader** cancel all orders and close all positions, set `desk_closed: true` and `desk_closed_reason`, have **journal** log it, and stop. If `desk_closed` is already true, take no new trades; only make sure you are flat.
 3. **End of day.** If it is 3:55 PM ET or later: have **execution-trader** flatten (cancel all orders, close all positions). After 4:00 PM ET, if `recap_written` is false, have **journal** write the daily recap and set `recap_written: true`, then have **portfolio-manager** run the long-term book and save its actions under `long_term`. On Fridays, then have **performance-reviewer** update `lessons.md`. Stop.
 4. **Normal cycle** (before 3:55 PM ET):
-   1. **news-analyst**: refresh only if the stored report is older than 60 minutes or a blackout is within 30 minutes; otherwise reuse the stored report. **policy-watch**: run every run (feeds only, so it stays fast); add any unscheduled blackout it returns to `news.blackouts`, and treat HIGH headline risk as a news-driven regime.
+   1. If a live headline in `news/latest.jsonl` names a watchlist stock or a mega-cap, have **earnings-analyst** grade it before the technical scan.
+   **news-analyst**: refresh only if the stored report is older than 60 minutes or a blackout is within 30 minutes; otherwise reuse the stored report. **policy-watch**: run every run (feeds only, so it stays fast); add any unscheduled blackout it returns to `news.blackouts`, and treat HIGH headline risk as a news-driven regime.
    2. **execution-trader**: manage open positions and working orders first (fills, stops, TP1/TP2, 15-minute cancels).
    3. If it is before 3:30 PM ET and trades remain today: **technical-analyst** for SPY, QQQ and the scanner's watchlist (regime first, then the strategies strategies.md allows).
    4. For each setup it returns: **risk-manager**. Pass it the news report, the tech report, and the current state.

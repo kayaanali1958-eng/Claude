@@ -8,7 +8,7 @@ All strategies are long-only in execution. A bearish setup is taken by **buying 
 
 | Regime | How to recognize it (5m chart, today) | Allowed strategies |
 |---|---|---|
-| **Trend up** | HTF bias bullish; 5m higher highs and higher lows; price above VWAP and above PDL/ONL | A (with trend), B, C, F, G long |
+| **Trend up** | HTF bias bullish; 5m higher highs and higher lows; price above VWAP and above PDL/ONL | A (with trend), B, C, F, G, H long |
 | **Trend down** | HTF bias bearish; 5m lower highs and lower lows; price below VWAP and below PDL/ONL | A (with trend), B, C, F, G short (inverse) |
 | **Range / chop** | At least 2 touches of both a range high and a range low in the last 60 min; VWAP flat; range ≥ 0.25% wide | D, G (gap fill only) |
 | **News-driven** | News-analyst condition is news-driven and a major release or speaker is within 60 min, or was in the last 30 min; or policy-watch reports HIGH headline risk | E only; size halved |
@@ -72,6 +72,17 @@ Where the styles come from: A and B are the ICT / TJR-style liquidity model, C i
 - **Gap fill:** gap against the HTF bias, or into a major level (PDH/PDL, weekly high/low), and the first 15 minutes fail to extend. Enter on a 5m close back toward the prior close; stop beyond the opening extreme; TP1 = half the gap; TP2 = prior close (the full fill).
 - **Min R:R:** 2:1 to TP2.
 - **Checklist (need 5/6):** gap ≥ 0.3% · direction rule above met · first-candle / failure-to-extend confirmation · clear stop level · ≥2:1 · outside blackout.
+
+### H. Catalyst continuation (news / earnings)
+- **When:** 9:45–11:30 and 13:45–15:00, on scanner stocks (or SPY/QQQ when a mega-cap report moves the index).
+- **Needs:** earnings-analyst grade +2 or +1 with reaction "confirms" (long). Grade -1/-2 is signal only for single stocks (no shorting). "Conflicted" means no trade.
+- **Setup:** after the first 15 minutes, a pullback to VWAP or the opening-range edge that holds, then a 5m close back in the catalyst's direction. Never buy the first spike.
+- **Stop:** below the pullback low (at least 0.3% away). **TP1:** the high of day. **TP2:** next daily level (prior high, 52-week high, gap measured move).
+- **Size:** full size only for grade +2; half size for +1.
+- **Min R:R:** 2:1 to TP2.
+- **Checklist (need 5/6):** grade ≥ +1 and confirms · relative volume ≥ 2 · pullback holds VWAP/OR edge · 5m close in catalyst direction · ≥2:1 · outside blackout.
+
+**News and earnings always count:** a setup that goes against an earnings-analyst grade of ±2 is rejected, and a policy-watch HIGH headline makes the regime news-driven.
 
 ## 3. Always stand aside when
 - The data-quality check fails (stale, interpolated, or mismatched prices).
