@@ -2,7 +2,7 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\update.ps1
 $desk = Split-Path -Parent $PSScriptRoot
 Set-Location $desk
-$keep = 'desk_state.json','journal.md','lessons.md','crypto_state.json','crypto_journal.md'
+$keep = 'desk_state.json','journal.md','lessons.md','crypto_state.json','crypto_journal.md','crypto_live_state.json','crypto_live_journal.md'
 $bak = Join-Path $desk 'news\update_backup'
 New-Item -ItemType Directory $bak -Force | Out-Null
 foreach ($f in $keep) { if (Test-Path $f) { Copy-Item $f $bak -Force } }

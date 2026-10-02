@@ -15,7 +15,7 @@ Each run:
 Paper only: this script never places real orders.
 Settings live in settings.md (Crypto book) and are mirrored in the constants below.
 """
-import json, subprocess, sys, time
+import json, os, subprocess, sys, time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -24,11 +24,19 @@ import yfinance as yf
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import crypto_lib as cl
+import crypto_live
 import notify
 
 ROOT = Path(__file__).resolve().parent.parent
-STATE = ROOT / "crypto_state.json"
-JOURNAL = ROOT / "crypto_journal.md"
+
+def crypto_mode():
+    s = (ROOT / "settings.md").read_text(encoding="utf-8") if (ROOT / "settings.md").exists() else ""
+    return "live" if "\nCRYPTO_MODE: live" in "\n" + s else "paper"
+
+
+LIVE = crypto_mode() == "live"
+STATE = ROOT / ("crypto_live_state.json" if LIVE else "crypto_state.json")
+JOURNAL = ROOT / ("crypto_live_journal.md" if LIVE else "crypto_journal.md")
 PLAYBOOK = ROOT / "backtests" / "crypto_playbook.json"
 COINS = ["BTC", "ETH", "SOL", "XRP", "DOGE", "AVAX", "LINK", "LTC"]
 START = 100.0
@@ -42,7 +50,7 @@ def log(text, alert_title=None):
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     with JOURNAL.open("a", encoding="utf-8") as f:
         if JOURNAL.stat().st_size == 0:
-            f.write("# Crypto Journal (paper)\n\n")
+            f.write(f"# Crypto Journal ({'LIVE' if LIVE else 'paper'})\n\n")
         f.write(f"- {stamp} · {text}\n")
     print(stamp, text)
     if alert_title:
@@ -52,7 +60,8 @@ def log(text, alert_title=None):
 def load_state():
     if STATE.exists():
         return json.loads(STATE.read_text())
-    return dict(start=START, cash=START, peak=START, paused=False, positions=[], closed=[],
+    start = float(os.environ.get("CRYPTO_LIVE_MAX") or 0) if LIVE else START
+    return dict(start=start, cash=start, peak=START, paused=False, positions=[], closed=[],
                 day=dict(date="", realized=0.0), last_signal={})
 
 
@@ -101,6 +110,21 @@ def manage(st, data):
             p["checked"] = str(ts)
             if exit_px is not None:
                 break
+        if LIVE and exit_px is None and p["be"] and p["stop"] > p.get("live_stop", p["stop"]):
+            res = crypto_live.move_stop(p["coin"], p["qty"], p["stop_order_id"], p["stop"])
+            if res.get("ok"):
+                p["stop_order_id"], p["live_stop"] = res.get("stop_order_id"), p["stop"]
+                log(f"LIVE stop on {p['coin']} raised to breakeven {p['stop']:,.4f}")
+            else:
+                p["stop"] = p.get("live_stop", p["stop"])
+                log(f"LIVE stop move FAILED on {p['coin']}: {res.get('error')}", "Crypto LIVE: check stop")
+        if LIVE and exit_px is not None:
+            res = crypto_live.sell_all(p["coin"], p["stop_order_id"], why)
+            if not res.get("ok"):
+                log(f"LIVE exit FAILED on {p['coin']} ({why}): {res.get('error')} — will retry next hour",
+                    "Crypto LIVE: exit failed, check app")
+                continue
+            exit_px = float(res.get("avg_price") or exit_px)
         if exit_px is not None:
             proceeds = p["qty"] * exit_px * (1 - cl.FEE)
             pnl = proceeds - p["cost"]
@@ -109,14 +133,17 @@ def manage(st, data):
             r = pnl / (p["qty"] * p["risk"])
             st["positions"].remove(p)
             st["closed"].append(dict(p, exit=exit_px, reason=why, pnl=round(pnl, 2), R=round(r, 2), closed=p["checked"]))
-            log(f"PAPER SELL {p['qty']:.6f} {p['coin']} @ {exit_px:,.4f} ({why}) · P&L ${pnl:+.2f} ({r:+.2f}R) · "
+            log(f"{'LIVE' if LIVE else 'PAPER'} SELL {p['qty']:.6f} {p['coin']} @ {exit_px:,.4f} ({why}) · P&L ${pnl:+.2f} ({r:+.2f}R) · "
                 f"{p['strategy']}", f"Crypto {'win' if pnl > 0 else 'loss'}: {p['coin']} ${pnl:+.2f}")
 
 
 def open_new(st, data, rules):
     prices = {c: float(d.close.iloc[-1]) for c, d in data.items()}
     eq = equity(st, prices)
-    if st["paused"]:
+    if st["paused"] or (ROOT / "STOP").exists():
+        return
+    if LIVE and st["start"] <= 0:
+        log("CRYPTO_MODE is live but CRYPTO_LIVE_MAX is not set in .env: no live trades.", "Crypto LIVE not configured")
         return
     if st["day"]["realized"] <= -DAILY_LOSS * st["start"]:
         return
@@ -139,13 +166,27 @@ def open_new(st, data, rules):
                 log(f"Skipped {coin} {name}: position under $1")
                 continue
             cost = qty * entry * (1 + cl.FEE)
+            live = {}
+            if LIVE:
+                res = crypto_live.buy(coin, qty * entry, stop)
+                if not res.get("ok") or not res.get("filled_qty"):
+                    log(f"LIVE buy FAILED {coin}: {res.get('error')}", "Crypto LIVE: buy failed")
+                    continue
+                qty, entry = float(res["filled_qty"]), float(res["avg_price"])
+                cost = qty * entry * (1 + cl.FEE)
+                risk = entry - stop
+                live = dict(stop_order_id=res.get("stop_order_id"), buy_order_id=res.get("buy_order_id"), live_stop=stop)
+                if risk <= 0:                            # filled at or below the stop: exit right away
+                    crypto_live.sell_all(coin, live["stop_order_id"], "filled below stop")
+                    log(f"LIVE {coin} filled at {entry} below stop {stop}: exited", "Crypto LIVE: bad fill, exited")
+                    continue
             st["cash"] -= cost
             target = entry + rule["exit"]["target"] * risk
             st["positions"].append(dict(coin=coin, strategy=name, qty=qty, entry=entry, stop=stop, target=target,
                                         risk=risk, be=rule["exit"]["be"], cost=cost, opened=ts, checked=ts,
-                                        situation=sit, rule=rule["when"]))
+                                        situation=sit, rule=rule["when"], **live))
             w = " & ".join(f"{k}={v}" for k, v in rule["when"].items()) or "any"
-            log(f"PAPER BUY {qty:.6f} {coin} @ {entry:,.4f} · stop {stop:,.4f} · target {target:,.4f} "
+            log(f"{'LIVE' if LIVE else 'PAPER'} BUY {qty:.6f} {coin} @ {entry:,.4f} · stop {stop:,.4f} · target {target:,.4f} "
                 f"({rule['exit']['target']}R{' +BE' if rule['exit']['be'] else ''}) · {name} · situation {w} · "
                 f"rule unseen {rule['test']['avgR']:+.2f}R over {rule['test']['trades']}",
                 f"Crypto buy: {coin}")

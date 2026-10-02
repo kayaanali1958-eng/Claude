@@ -49,8 +49,11 @@ This book is separate from the day-trading books and never uses leverage, invers
 
 Account: Agentic (Robinhood account ending 0701, the only account the agent may trade)
 
-## Crypto book (paper, run by scripts/crypto_desk.py every hour, 24/7, no Claude usage)
-Start: $100 paper. Coins: BTC, ETH, SOL, XRP, DOGE, AVAX, LINK, LTC (fractional amounts).
+CRYPTO_MODE: paper
+<!-- paper = simulate. live = real crypto orders on the Agentic account through Claude Code, capped at CRYPTO_LIVE_MAX dollars in .env. -->
+
+## Crypto book (run by scripts/crypto_desk.py every hour, 24/7)
+Paper start: $100. Live: the book is CRYPTO_LIVE_MAX dollars from .env (the most the desk may ever put in), tracked in `crypto_live_state.json` / `crypto_live_journal.md`. Every live buy gets a real stop order on Robinhood immediately. Coins: BTC, ETH, SOL, XRP, DOGE, AVAX, LINK, LTC (fractional amounts).
 - Trades only when a rule in `backtests/crypto_playbook.json` matches the coin's current situation (trend, volatility, session, weekend, BTC trend). The playbook is rebuilt weekly from 2 years of hourly data.
 - Long only, no leverage (Robinhood crypto has none). 1% risk per trade, at most 2 open positions, max hold 48 hours.
 - Stops opening trades for the day after a 3% loss; pauses everything after a 10% drop from the book's peak (phone alert).

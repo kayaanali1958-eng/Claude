@@ -11,3 +11,5 @@ lessons.md
 crypto_state.json
 crypto_journal.md
 backtests/
+crypto_live_state.json
+crypto_live_journal.md
