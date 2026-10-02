@@ -14,7 +14,7 @@ TOOLS = ["get_accounts", "get_portfolio", "get_crypto_quotes", "get_crypto_posit
 PREFIXES = ["mcp__robinhood-trading__", "mcp__RobinHood__", "mcp__claude_ai_RobinHood__"]
 ACCOUNT = ("Use only the Agentic account (the account ending 0701): call get_accounts and pick that account; "
            "if it is not there, stop and return ok false. "
-           "and pass its rhs_account_number (never rhc_account_number).")
+           "Pass its rhs_account_number (never rhc_account_number).")
 
 
 def _claude():
