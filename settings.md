@@ -51,7 +51,7 @@ Account: Agentic (Robinhood account ending 0701, the only account the agent may 
 
 ## Evidence gate
 - Paper mode: every strategy may trade, so the desk keeps collecting evidence.
-- **Live mode: only strategy + side combinations marked PASS in `backtests/approved.json`, and only with the filters listed there.** Everything else is signal only. The backtest re-runs every Friday after the close.
+- **Live mode: only setups that match a rule in `backtests/playbook.json`** (strategy, side, situation and exit). Everything else is signal only. The playbook is rebuilt every Friday after the close.
 - Market fear check: if the VIX is above 30, every trade is half size; above 40, no new trades.
 
 ## Hard rules

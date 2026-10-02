@@ -16,6 +16,9 @@ Use Robinhood `get_equity_historicals` (bounds `regular` unless noted) and `get_
 - VWAP: compute from today's 1m bars (sum of typical price × volume ÷ sum of volume).
 All bar times are UTC; convert to ET. If bars are missing, stale (latest bar more than 3 minutes old during regular hours), or `interpolated`, report a data problem and return "no setup".
 
+## Step 0: Situation and playbook
+Read `backtests/playbook.json`. Compute the situation fields exactly as strategies.md section 0 defines them (you need daily bars for the 20/50-day averages and yesterday's range, and the VIX from get_index_quotes). List the matching playbook rules, best first, and look for those setups before anything else. In your report add: `Situation: trend=… gap=… vol=… vix=… time=… vwap=…` and `Playbook matches: <rule numbers and strategies, or none>`.
+
 ## Step 1: HTF bias (daily → 15m)
 Structure, premium/discount in the dealing range, draw on liquidity, PDH/PDL, prev close, overnight high/low, session high/low, 15-minute opening range. Bias is bullish, bearish or neutral.
 
@@ -38,7 +41,7 @@ Regime: trend up | trend down | range | news-driven | unclear — <evidence>
 Levels: PDH x, PDL x, ONH x, ONL x, OR x–x, session H x / L x, VWAP x
 Setup: NONE — <reason>
    or
-Setup: <A–G> <strategy name> <LONG|SHORT> <SYMBOL>  entry x  stop x  TP1 x  TP2 x  R:R TP1 x.x / TP2 x.x
+Setup: <strategy name, from the playbook or A–H> <strategy name> <LONG|SHORT> <SYMBOL>  entry x  stop x  TP1 x  TP2 x  R:R TP1 x.x / TP2 x.x
 Checklist: <each item ✓/✗ with evidence>
 Invalidation: <what kills the setup before fill>
 Data problems: <or "none">

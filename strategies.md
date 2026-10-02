@@ -4,6 +4,23 @@ The technical-analyst picks the regime first (strategies A–G), then only looks
 
 All strategies are long-only in execution. A bearish setup is taken by **buying an inverse ETF** (see settings.md), never by shorting.
 
+## 0. Automatic strategy selection (the playbook)
+`backtests/playbook.json` is rebuilt every Friday by `scripts/backtest.py`. It tests every strategy in its library, long and short, in every market situation and with every exit, and keeps only the combinations that made money on days they were not tuned on.
+
+Every run, for each symbol, the technical-analyst:
+1. Works out the **situation** exactly as the playbook defines it: `trend` (up/down/flat: yesterday's close vs. its 20-day average, and the 20-day vs. the 50-day), `gap` (up/down/flat at ±0.3%), `vol` (yesterday's range vs. its 20-day average: high above 1.3×, low below 0.7×), `vix` (calm under 20, nervous 20–30, fear above 30), `time` (open before 10:30, midday until 14:00, late after), `vwap` (above/below).
+2. Finds the playbook rules whose `when` conditions all match, and looks **first** for those strategies, with the rule's exit (target and breakeven).
+3. Uses the regime table below only for strategies the playbook can't test (B, E, H, which depend on judgment or news).
+
+When several match, take the rule with the best unseen-data result, then the most unseen trades. New strategies get added to the library in `scripts/backtest.py`; the playbook decides automatically where each one works.
+
+### Playbook strategy library (exact rules in `scripts/backtest.py`)
+- **A** sweep & reclaim of the prior-day high/low · **C** ORB + retest · **C2** ORB breakout, no retest · **F** VWAP reclaim/reject
+- **D2** VWAP band fade: price stretched 2 standard deviations from VWAP, then a reversal bar; target VWAP
+- **G** gap and go · **G2** gap fill · **I** prior-day high/low breakout on volume · **J** midday range breakout after 13:30
+- **K** opening drive: a strong first 15 minutes (±0.4%) continued at 9:50 on the right side of VWAP
+- **L** first pullback after a new high/low of day · **M** inside-bar breakout with VWAP
+
 ## 1. Pick the regime (every run, per symbol)
 
 | Regime | How to recognize it (5m chart, today) | Allowed strategies |

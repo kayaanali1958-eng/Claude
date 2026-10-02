@@ -1,30 +1,29 @@
 #!/usr/bin/env python3
-"""Backtest and filter-search the desk's rule-based strategies on real 5-minute bars.
+"""Playbook engine: learns which strategy works in which market situation.
 
-What it does
-  1. Runs each strategy (A sweep, C ORB retest, F VWAP, G gap-and-go, G gap fill), long and short,
-     under every combination of the accuracy filters below.
-  2. Walk-forward check: picks the best filter set on the first 2/3 of the days (train) and then
-     scores it on the last 1/3 it has never seen (test). Only strategies that make money on BOTH
-     are marked PASS. This guards against fitting noise.
-  3. Writes backtests/report_<date>.md (human report) and backtests/approved.json (what passed,
-     with its filters) for the performance-reviewer.
+1. STRATEGY LIBRARY: every function decorated with @strategy below is tested automatically.
+   To add a strategy, write one more function; nothing else changes. The library has no size limit.
+2. SITUATIONS: every signal is tagged with the market situation at that moment:
+     trend  daily trend: up / down / flat   (price vs 20-day avg, 20 vs 50-day avg)
+     gap    today's open vs yesterday's close: up / down / flat  (0.3% threshold)
+     vol    yesterday's range vs its 20-day average: high / normal / low
+     vix    VIX level: calm (<20) / nervous (20-30) / fear (>30)
+     time   open (9:30-10:30) / midday (10:30-14:00) / late (14:00-15:30)
+     vwap   price above or below VWAP at the signal
+3. LEARNING: for each strategy and side, it tries every situation (one or two conditions at a time)
+   and every exit (1.5R, 2R or 3R target, with or without breakeven at +1R). It picks what worked
+   on the first 2/3 of the days, then keeps it only if it ALSO made money on the last 1/3, which it
+   never saw. Those survivors become the playbook.
+4. OUTPUT: backtests/playbook.json  (situation -> strategies that work there, used by the desk)
+           backtests/report_<date>.md (readable summary)
 
-Filters searched (accuracy)
-  trend    trade only with the daily trend (price vs. 20-day average, 20 vs. 50-day average)
-  vwap     longs only above VWAP, shorts only below
-  rvol     entry bar volume at least 1.5x the session average so far
-  window   morning only (entries before 11:30)
-Exits searched (profit)
-  target   1.5R, 2R or 3R
-  be       move the stop to breakeven once price reaches +1R
+Rules for every test: 1R risk; stop counts first if stop and target share a bar; flat 15:55;
+no entries after 15:30; 0.02% slippage per side; one trade per strategy, side, symbol and day.
+News, earnings grades and the risk manager's judgment are not modelled: the playbook says where
+an edge has shown up, the desk still applies its full checks.
 
-Rules: 1R risk; if stop and target fall inside one bar the stop counts first; flat at 15:55; no
-entries after 15:30; 0.02% slippage per side; one trade per strategy, side, symbol and day.
-Not modelled: news blackouts, earnings grades, the risk manager's judgment. Treat as a screen.
-
-Usage:  python scripts/backtest.py                 (SPY QQQ)
-        python scripts/backtest.py NVDA AMD TSLA   (any symbols; more symbols = more evidence)
+Usage:  python scripts/backtest.py                      (SPY QQQ + 8 mega-caps)
+        python scripts/backtest.py NVDA AMD PLTR NBIS   (any symbols; more = more evidence)
 Needs:  pip install yfinance pandas tabulate
 """
 import itertools, json, sys
@@ -37,239 +36,379 @@ import yfinance as yf
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "backtests"
+DEFAULT = ["SPY", "QQQ", "NVDA", "AAPL", "MSFT", "AMZN", "META", "TSLA", "AMD", "GOOGL"]
 SLIP = 0.0002
 LAST_ENTRY, FLAT = dtime(15, 30), dtime(15, 55)
-MIN_TRADES = 8                     # per half, to count as evidence
+EXITS = [dict(target=t, be=b) for t in (1.5, 2.0, 3.0) for b in (False, True)]
+MIN_TRAIN, MIN_TEST = 10, 5
+TRAIN_EDGE, TEST_EDGE = 0.15, 0.05      # avg R needed to count as an edge
 
-FILTERS = {"trend": [False, True], "vwap": [False, True], "rvol": [False, True], "morning": [False, True]}
-EXITS = {"target": [1.5, 2.0, 3.0], "be": [False, True]}
-GRID = [dict(zip(list(FILTERS) + list(EXITS), v)) for v in itertools.product(*FILTERS.values(), *EXITS.values())]
+# ======================================================================================
+# Strategy library. Each function gets a Day and yields (side, entry, stop[, fixed_target]).
+# It is called once per bar i; return nothing when there is no signal.
+# ======================================================================================
+STRATEGIES = {}
 
 
-# ---------- data ----------
-def load(symbol):
-    intra = yf.download(symbol, period="60d", interval="5m", progress=False, prepost=False, auto_adjust=False)
-    daily = yf.download(symbol, period="1y", interval="1d", progress=False, auto_adjust=False)
-    for df in (intra, daily):
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
+def strategy(name):
+    def reg(fn):
+        STRATEGIES[name] = fn
+        return fn
+    return reg
+
+
+@strategy("A sweep & reclaim PDH/PDL")
+def s_sweep(D, i):
+    if not dtime(9, 35) <= D.t[i] <= dtime(11, 0):
+        return
+    lo, hi = D.l[:i + 1].min(), D.h[:i + 1].max()
+    if lo < D.pdl and D.c[i] > D.pdl and D.c[i - 1] <= D.pdl:
+        yield "long", D.c[i], lo - 0.02
+    if hi > D.pdh and D.c[i] < D.pdh and D.c[i - 1] >= D.pdh:
+        yield "short", D.c[i], hi + 0.02
+
+
+@strategy("C opening range breakout + retest")
+def s_orb(D, i):
+    if not dtime(9, 50) <= D.t[i] <= dtime(10, 45) or D.orw <= 0:
+        return
+    if (D.c[3:i] > D.orh).any() and D.c[i - 1] > D.orh and D.l[i] <= D.orh < D.c[i]:
+        yield "long", D.c[i], max(D.orh - D.orw / 3, (D.orh + D.orl) / 2)
+    if (D.c[3:i] < D.orl).any() and D.c[i - 1] < D.orl and D.h[i] >= D.orl > D.c[i]:
+        yield "short", D.c[i], min(D.orl + D.orw / 3, (D.orh + D.orl) / 2)
+
+
+@strategy("C2 opening range breakout (no retest)")
+def s_orb_break(D, i):
+    if not dtime(9, 45) <= D.t[i] <= dtime(11, 0) or D.orw <= 0:
+        return
+    if D.c[i] > D.orh and (D.c[3:i] <= D.orh).all() and D.v[i] > D.avgv[i]:
+        yield "long", D.c[i], (D.orh + D.orl) / 2
+    if D.c[i] < D.orl and (D.c[3:i] >= D.orl).all() and D.v[i] > D.avgv[i]:
+        yield "short", D.c[i], (D.orh + D.orl) / 2
+
+
+@strategy("F VWAP reclaim / reject")
+def s_vwap(D, i):
+    if not dtime(10, 0) <= D.t[i] <= dtime(15, 0) or i < 6:
+        return
+    slope = D.vwap[i] - D.vwap[i - 6]
+    if slope > 0 and D.c[i - 1] < D.vwap[i - 1] and D.c[i] > D.vwap[i]:
+        yield "long", D.c[i], D.l[i - 3:i + 1].min() - 0.02
+    if slope < 0 and D.c[i - 1] > D.vwap[i - 1] and D.c[i] < D.vwap[i]:
+        yield "short", D.c[i], D.h[i - 3:i + 1].max() + 0.02
+
+
+@strategy("D2 VWAP band fade (mean reversion)")
+def s_band(D, i):
+    if not dtime(10, 30) <= D.t[i] <= dtime(15, 0) or i < 12:
+        return
+    sd = np.std(D.c[:i + 1] - D.vwap[:i + 1])
+    if sd <= 0:
+        return
+    if D.l[i - 1] < D.vwap[i - 1] - 2 * sd and D.c[i] > D.h[i - 1]:
+        yield "long", D.c[i], D.l[i - 1:i + 1].min() - 0.02, D.vwap[i]
+    if D.h[i - 1] > D.vwap[i - 1] + 2 * sd and D.c[i] < D.l[i - 1]:
+        yield "short", D.c[i], D.h[i - 1:i + 1].max() + 0.02, D.vwap[i]
+
+
+@strategy("G gap and go")
+def s_gapgo(D, i):
+    if not dtime(9, 35) <= D.t[i] <= dtime(10, 30) or abs(D.gap) < 0.003:
+        return
+    if D.gap > 0 and D.c[0] > D.o[0] and D.l[i - 1] > D.o[0] and D.c[i] > D.h[i - 1]:
+        yield "long", D.c[i], D.l[i - 1] - 0.02
+    if D.gap < 0 and D.c[0] < D.o[0] and D.h[i - 1] < D.o[0] and D.c[i] < D.l[i - 1]:
+        yield "short", D.c[i], D.h[i - 1] + 0.02
+
+
+@strategy("G2 gap fill")
+def s_gapfill(D, i):
+    if not dtime(9, 45) <= D.t[i] <= dtime(10, 30) or abs(D.gap) < 0.003 or i <= 3:
+        return
+    if D.gap > 0 and D.h[3:i].max() <= D.h[:3].max() and D.c[i] < D.l[0]:
+        stop = D.h[:i].max() + 0.02
+        if D.c[i] - D.pclose >= 1.5 * (stop - D.c[i]):
+            yield "short", D.c[i], stop, D.pclose
+    if D.gap < 0 and D.l[3:i].min() >= D.l[:3].min() and D.c[i] > D.h[0]:
+        stop = D.l[:i].min() - 0.02
+        if D.pclose - D.c[i] >= 1.5 * (D.c[i] - stop):
+            yield "long", D.c[i], stop, D.pclose
+
+
+@strategy("I prior-day high/low breakout")
+def s_pdbreak(D, i):
+    if not dtime(10, 0) <= D.t[i] <= dtime(14, 30):
+        return
+    if D.c[i] > D.pdh and (D.c[:i] <= D.pdh).all() and D.v[i] > 1.2 * D.avgv[i]:
+        yield "long", D.c[i], D.l[i - 2:i + 1].min() - 0.02
+    if D.c[i] < D.pdl and (D.c[:i] >= D.pdl).all() and D.v[i] > 1.2 * D.avgv[i]:
+        yield "short", D.c[i], D.h[i - 2:i + 1].max() + 0.02
+
+
+@strategy("J midday range breakout (afternoon trend)")
+def s_midday(D, i):
+    if not dtime(13, 30) <= D.t[i] <= dtime(15, 0):
+        return
+    mid = [k for k in range(i) if dtime(11, 30) <= D.t[k] < dtime(13, 30)]
+    if len(mid) < 12:
+        return
+    mh, ml = D.h[mid].max(), D.l[mid].min()
+    after = range(mid[-1] + 1, i)
+    if D.c[i] > mh and all(D.c[k] <= mh for k in after):
+        yield "long", D.c[i], (mh + ml) / 2
+    if D.c[i] < ml and all(D.c[k] >= ml for k in after):
+        yield "short", D.c[i], (mh + ml) / 2
+
+
+@strategy("K opening drive continuation")
+def s_drive(D, i):
+    if D.t[i] != dtime(9, 50):
+        return
+    move = D.c[3] / D.o[0] - 1
+    if move > 0.004 and D.c[i] > D.vwap[i]:
+        yield "long", D.c[i], D.l[:i + 1].min() - 0.02
+    if move < -0.004 and D.c[i] < D.vwap[i]:
+        yield "short", D.c[i], D.h[:i + 1].max() + 0.02
+
+
+@strategy("L first pullback after new high/low of day")
+def s_firstpb(D, i):
+    if not dtime(10, 0) <= D.t[i] <= dtime(14, 0) or i < 4:
+        return
+    hod, lod = D.h[:i - 1].max(), D.l[:i - 1].min()
+    if D.h[i - 2] >= hod and D.l[i - 1] < D.l[i - 2] and D.c[i] > D.h[i - 1] and D.c[i] > D.vwap[i]:
+        yield "long", D.c[i], D.l[i - 1] - 0.02
+    if D.l[i - 2] <= lod and D.h[i - 1] > D.h[i - 2] and D.c[i] < D.l[i - 1] and D.c[i] < D.vwap[i]:
+        yield "short", D.c[i], D.h[i - 1] + 0.02
+
+
+@strategy("M inside bar breakout")
+def s_inside(D, i):
+    if not dtime(10, 0) <= D.t[i] <= dtime(15, 0) or i < 3:
+        return
+    if D.h[i - 1] < D.h[i - 2] and D.l[i - 1] > D.l[i - 2]:
+        if D.c[i] > D.h[i - 2] and D.c[i] > D.vwap[i]:
+            yield "long", D.c[i], D.l[i - 1] - 0.02
+        if D.c[i] < D.l[i - 2] and D.c[i] < D.vwap[i]:
+            yield "short", D.c[i], D.h[i - 1] + 0.02
+
+
+# ======================================================================================
+# Data, situations, simulation
+# ======================================================================================
+class Day:
+    pass
+
+
+def flat_cols(df):
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+    return df.rename(columns=str.lower)
+
+
+def load(symbol, vix_by_day):
+    intra = flat_cols(yf.download(symbol, period="60d", interval="5m", progress=False, prepost=False, auto_adjust=False))
+    daily = flat_cols(yf.download(symbol, period="1y", interval="1d", progress=False, auto_adjust=False))
     if intra.empty or daily.empty:
-        return None, None
-    intra = intra.rename(columns=str.lower)[["open", "high", "low", "close", "volume"]].dropna()
+        return []
+    intra = intra[["open", "high", "low", "close", "volume"]].dropna()
     intra.index = intra.index.tz_convert("America/New_York")
-    daily = daily.rename(columns=str.lower)
     daily["sma20"], daily["sma50"] = daily.close.rolling(20).mean(), daily.close.rolling(50).mean()
-    # trend known at the start of each day = yesterday's values
-    trend = np.where((daily.close > daily.sma20) & (daily.sma20 > daily.sma50), 1,
-                     np.where((daily.close < daily.sma20) & (daily.sma20 < daily.sma50), -1, 0))
-    daily["trend_next"] = pd.Series(trend, index=daily.index).shift(1)
-    trend_by_day = {d.date(): t for d, t in daily["trend_next"].items() if not pd.isna(t)}
-    return intra, trend_by_day
+    daily["rng"] = daily.high - daily.low
+    daily["rng20"] = daily.rng.rolling(20).mean()
+    ctx = {}
+    for k in range(1, len(daily)):
+        y = daily.iloc[k - 1]                          # yesterday: known before today's open
+        if pd.isna(y.sma50) or pd.isna(y.rng20):
+            continue
+        trend = "up" if y.close > y.sma20 > y.sma50 else "down" if y.close < y.sma20 < y.sma50 else "flat"
+        vol = "high" if y.rng > 1.3 * y.rng20 else "low" if y.rng < 0.7 * y.rng20 else "normal"
+        ctx[daily.index[k].date()] = dict(trend=trend, vol=vol)
 
-
-# ---------- signal generation (raw candidates, filters applied later) ----------
-def candidates(sym, intra, trend_by_day):
-    """Every raw entry signal, with the context the filters need."""
-    out = []
-    days = sorted(set(intra.index.date))
+    days, out = sorted(set(intra.index.date)), []
     for k in range(1, len(days)):
         d = days[k]
-        prev = intra[intra.index.date == days[k - 1]]
-        day = intra[intra.index.date == d]
-        if len(day) < 20 or prev.empty:
+        prev, day = intra[intra.index.date == days[k - 1]], intra[intra.index.date == d]
+        if len(day) < 30 or prev.empty or d not in ctx:
             continue
-        o, h, l, c, v = (day[x].to_numpy() for x in ("open", "high", "low", "close", "volume"))
-        times = [ts.time() for ts in day.index]
-        tp = (h + l + c) / 3
-        vwap = np.cumsum(tp * v) / np.cumsum(v)
-        avgv = np.concatenate([[np.nan], np.cumsum(v)[:-1] / np.arange(1, len(v))])
-        pdh, pdl, pclose = prev.high.max(), prev.low.min(), prev.close.iloc[-1]
-        orh, orl = h[:3].max(), l[:3].min()
-        orw = orh - orl
-        gap = o[0] / pclose - 1
-        trend = trend_by_day.get(d, 0)
-        ctx = dict(sym=sym, date=d, trend=trend, h=h, l=l, c=c, times=times)
-        swept_lo = swept_hi = None
-        broke_up = broke_dn = False
-        seen = set()
-
-        def sig(strategy, side, i, entry, stop, fixed_target=None):
-            key = strategy + side
-            if key in seen:
-                return
-            seen.add(key)
-            risk = entry - stop if side == "long" else stop - entry
-            if risk <= entry * 0.0005:
-                return
-            out.append(dict(ctx, strategy=strategy, side=side, i=i, entry=entry, stop=stop, risk=risk,
-                            fixed_target=fixed_target, above_vwap=c[i] > vwap[i],
-                            rvol=(v[i] / avgv[i]) if avgv[i] else 0, t=times[i]))
-
-        for i in range(3, len(c)):
-            t = times[i]
-            if t > LAST_ENTRY:
-                break
-            # A: sweep of prior day low/high, close back inside (9:35-11:00)
-            if dtime(9, 35) <= t <= dtime(11, 0):
-                if l[i] < pdl:
-                    swept_lo = min(swept_lo or l[i], l[i])
-                if h[i] > pdh:
-                    swept_hi = max(swept_hi or h[i], h[i])
-                if swept_lo and c[i] > pdl:
-                    sig("A sweep", "long", i, c[i], swept_lo - 0.02)
-                if swept_hi and c[i] < pdh:
-                    sig("A sweep", "short", i, c[i], swept_hi + 0.02)
-            # C: ORB with volume, then a retest that holds (9:50-10:45)
-            if dtime(9, 50) <= t <= dtime(10, 45) and orw > 0:
-                if c[i] > orh and v[i] > avgv[i]:
-                    broke_up = True
-                if c[i] < orl and v[i] > avgv[i]:
-                    broke_dn = True
-                if broke_up and c[i - 1] > orh and l[i] <= orh < c[i]:
-                    sig("C ORB retest", "long", i, c[i], max(orh - orw / 3, (orh + orl) / 2))
-                if broke_dn and c[i - 1] < orl and h[i] >= orl > c[i]:
-                    sig("C ORB retest", "short", i, c[i], min(orl + orw / 3, (orh + orl) / 2))
-            # F: VWAP reclaim/reject with the VWAP slope (10:00-15:00)
-            if dtime(10, 0) <= t <= dtime(15, 0) and i >= 6:
-                slope = vwap[i] - vwap[i - 6]
-                if slope > 0 and c[i - 1] < vwap[i - 1] and c[i] > vwap[i]:
-                    sig("F VWAP", "long", i, c[i], l[i - 3:i + 1].min() - 0.02)
-                if slope < 0 and c[i - 1] > vwap[i - 1] and c[i] < vwap[i]:
-                    sig("F VWAP", "short", i, c[i], h[i - 3:i + 1].max() + 0.02)
-            # G: opening gap >= 0.3% (9:35-10:30)
-            if dtime(9, 35) <= t <= dtime(10, 30) and abs(gap) >= 0.003:
-                if gap > 0 and c[0] > o[0] and l[i - 1] > o[0] and c[i] > h[i - 1]:
-                    sig("G gap&go", "long", i, c[i], l[i - 1] - 0.02)
-                if gap < 0 and c[0] < o[0] and h[i - 1] < o[0] and c[i] < l[i - 1]:
-                    sig("G gap&go", "short", i, c[i], h[i - 1] + 0.02)
-                if t >= dtime(9, 45) and i > 3:
-                    if gap > 0 and h[3:i].max() <= h[:3].max() and c[i] < l[0]:
-                        stop = h[:i].max() + 0.02
-                        if c[i] - pclose >= 1.5 * (stop - c[i]):
-                            sig("G gap fill", "short", i, c[i], stop, pclose)
-                    elif gap < 0 and l[3:i].min() >= l[:3].min() and c[i] > h[0]:
-                        stop = l[:i].min() - 0.02
-                        if pclose - c[i] >= 1.5 * (c[i] - stop):
-                            sig("G gap fill", "long", i, c[i], stop, pclose)
+        D = Day()
+        D.sym, D.date = symbol, d
+        D.o, D.h, D.l, D.c, D.v = (day[x].to_numpy() for x in ("open", "high", "low", "close", "volume"))
+        D.t = [ts.time() for ts in day.index]
+        tp = (D.h + D.l + D.c) / 3
+        D.vwap = np.cumsum(tp * D.v) / np.cumsum(D.v)
+        D.avgv = np.concatenate([[np.inf], np.cumsum(D.v)[:-1] / np.arange(1, len(D.v))])
+        D.pdh, D.pdl, D.pclose = prev.high.max(), prev.low.min(), prev.close.iloc[-1]
+        D.orh, D.orl = D.h[:3].max(), D.l[:3].min()
+        D.orw = D.orh - D.orl
+        D.gap = D.o[0] / D.pclose - 1
+        vix = vix_by_day.get(d)
+        D.sit = dict(ctx[d], gap="up" if D.gap > 0.003 else "down" if D.gap < -0.003 else "flat",
+                     vix="unknown" if vix is None else "calm" if vix < 20 else "nervous" if vix <= 30 else "fear")
+        out.append(D)
     return out
 
 
-# ---------- filters and exits ----------
-def passes(s, cfg):
-    long = s["side"] == "long"
-    if cfg["trend"] and s["trend"] != (1 if long else -1):
-        return False
-    if cfg["vwap"] and s["above_vwap"] != long:
-        return False
-    if cfg["rvol"] and s["rvol"] < 1.5:
-        return False
-    if cfg["morning"] and s["t"] > dtime(11, 30):
-        return False
-    return True
+def time_bucket(t):
+    return "open" if t < dtime(10, 30) else "midday" if t < dtime(14, 0) else "late"
 
 
-def result_R(s, cfg):
-    h, l, c, times, i = s["h"], s["l"], s["c"], s["times"], s["i"]
-    long, entry, risk = s["side"] == "long", s["entry"], s["risk"]
-    stop = s["stop"]
-    target = s["fixed_target"] if s["fixed_target"] else (entry + cfg["target"] * risk if long else entry - cfg["target"] * risk)
-    be_trigger = entry + risk if long else entry - risk
-    exit_px = c[-1]
-    for j in range(i + 1, len(c)):
-        if times[j] >= FLAT:
-            exit_px = c[j]
-            break
-        if long:
-            if l[j] <= stop:
-                exit_px = stop; break
-            if h[j] >= target:
-                exit_px = target; break
-            if cfg["be"] and h[j] >= be_trigger:
-                stop = max(stop, entry)
-        else:
-            if h[j] >= stop:
-                exit_px = stop; break
-            if l[j] <= target:
-                exit_px = target; break
-            if cfg["be"] and l[j] <= be_trigger:
-                stop = min(stop, entry)
-    gross = exit_px - entry if long else entry - exit_px
-    return (gross - SLIP * (entry + exit_px)) / risk
+def simulate(D, i, side, entry, stop, target):
+    long, risk = side == "long", (entry - stop if side == "long" else stop - entry)
+    res = {}
+    for ex in EXITS:
+        tgt = target if target is not None else (entry + ex["target"] * risk if long else entry - ex["target"] * risk)
+        st, be = stop, entry + risk if long else entry - risk
+        px = D.c[-1]
+        for j in range(i + 1, len(D.c)):
+            if D.t[j] >= FLAT:
+                px = D.c[j]; break
+            if long:
+                if D.l[j] <= st: px = st; break
+                if D.h[j] >= tgt: px = tgt; break
+                if ex["be"] and D.h[j] >= be: st = max(st, entry)
+            else:
+                if D.h[j] >= st: px = st; break
+                if D.l[j] <= tgt: px = tgt; break
+                if ex["be"] and D.l[j] <= be: st = min(st, entry)
+        gross = px - entry if long else entry - px
+        res[(ex["target"], ex["be"])] = (gross - SLIP * (entry + px)) / risk
+    return res
 
 
-def score(sigs, cfg):
-    rs = [result_R(s, cfg) for s in sigs if passes(s, cfg)]
-    if not rs:
-        return dict(trades=0, win=0, avgR=0.0, totalR=0.0, dd=0.0)
-    eq = np.cumsum(rs)
-    return dict(trades=len(rs), win=round(100 * np.mean(np.array(rs) > 0)), avgR=round(float(np.mean(rs)), 2),
-                totalR=round(float(np.sum(rs)), 1), dd=round(float((np.maximum.accumulate(eq) - eq).max()), 1))
+def collect(days):
+    rows = []
+    for D in days:
+        fired = set()
+        for i in range(3, len(D.c)):
+            if D.t[i] > LAST_ENTRY:
+                break
+            for name, fn in STRATEGIES.items():
+                for sig in fn(D, i) or ():
+                    side, entry, stop = sig[:3]
+                    target = sig[3] if len(sig) > 3 else None
+                    risk = entry - stop if side == "long" else stop - entry
+                    if (name, side) in fired or risk <= entry * 0.0005:
+                        continue
+                    if target is not None and ((target - entry) if side == "long" else (entry - target)) < risk:
+                        continue
+                    fired.add((name, side))
+                    sit = dict(D.sit, time=time_bucket(D.t[i]), vwap="above" if D.c[i] > D.vwap[i] else "below")
+                    rows.append(dict(strategy=name, side=side, symbol=D.sym, date=D.date, **sit,
+                                     **{f"R_{t}_{b}": r for (t, b), r in simulate(D, i, side, entry, stop, target).items()}))
+    return pd.DataFrame(rows)
 
 
-def describe(cfg):
-    f = [k for k in FILTERS if cfg[k]]
-    return (", ".join(f) or "no filters") + f" · target {cfg['target']}R" + (" · breakeven at 1R" if cfg["be"] else "")
+# ======================================================================================
+# Learning
+# ======================================================================================
+FEATURES = ["trend", "gap", "vol", "vix", "time", "vwap"]
 
 
-# ---------- main ----------
+def conditions(df):
+    singles = [((f, v),) for f in FEATURES for v in sorted(df[f].unique()) if v != "unknown"]
+    pairs = [(a[0], b[0]) for a, b in itertools.combinations(singles, 2) if a[0][0] != b[0][0]]
+    return [()] + singles + pairs
+
+
+def mask(df, cond):
+    m = np.ones(len(df), dtype=bool)
+    for f, v in cond:
+        m &= (df[f] == v).to_numpy()
+    return m
+
+
+def learn(df, cut):
+    train, test = df[df.date < cut], df[df.date >= cut]
+    rules, tested = [], 0
+    for (strat, side), g_tr in train.groupby(["strategy", "side"]):
+        g_te = test[(test.strategy == strat) & (test.side == side)]
+        for cond in conditions(g_tr):
+            m_tr = mask(g_tr, cond)
+            if m_tr.sum() < MIN_TRAIN:
+                continue
+            for ex in EXITS:
+                col = f"R_{ex['target']}_{ex['be']}"
+                tested += 1
+                tr_r = g_tr[col].to_numpy()[m_tr]
+                if tr_r.mean() < TRAIN_EDGE:
+                    continue
+                te_r = g_te[col].to_numpy()[mask(g_te, cond)] if len(g_te) else np.array([])
+                if len(te_r) >= MIN_TEST and te_r.mean() > TEST_EDGE:
+                    rules.append(dict(strategy=strat, side=side, when=dict(cond), exit=ex,
+                                      train=dict(trades=int(len(tr_r)), avgR=round(float(tr_r.mean()), 2),
+                                                 win=round(float((tr_r > 0).mean() * 100))),
+                                      test=dict(trades=int(len(te_r)), avgR=round(float(te_r.mean()), 2),
+                                                win=round(float((te_r > 0).mean() * 100)))))
+    # keep the best exit per (strategy, side, situation); rank by unseen-data result, then sample size
+    best = {}
+    for r in rules:
+        k = (r["strategy"], r["side"], tuple(sorted(r["when"].items())))
+        if k not in best or (r["test"]["avgR"], r["test"]["trades"]) > (best[k]["test"]["avgR"], best[k]["test"]["trades"]):
+            best[k] = r
+    # drop duplicates: same strategy/side/exit with identical results -> keep the simplest situation
+    simple = {}
+    for r in best.values():
+        k = (r["strategy"], r["side"], r["exit"]["target"], r["exit"]["be"],
+             r["train"]["trades"], r["train"]["avgR"], r["test"]["trades"], r["test"]["avgR"])
+        if k not in simple or len(r["when"]) < len(simple[k]["when"]):
+            simple[k] = r
+    ranked = sorted(simple.values(), key=lambda r: (r["test"]["avgR"] * np.sqrt(r["test"]["trades"])), reverse=True)
+    return ranked, tested
+
+
+def fmt_when(w):
+    return " & ".join(f"{k}={v}" for k, v in w.items()) or "any situation"
+
+
 def main():
-    symbols = [s.upper() for s in sys.argv[1:]] or ["SPY", "QQQ"]
-    sigs = []
-    for sym in symbols:
-        intra, trend = load(sym)
-        if intra is None:
-            print(f"{sym}: no data"); continue
-        s = candidates(sym, intra, trend)
-        print(f"{sym}: {len(s)} raw signals")
-        sigs += s
-    if not sigs:
+    symbols = [s.upper() for s in sys.argv[1:]] or DEFAULT
+    vix = flat_cols(yf.download("^VIX", period="1y", interval="1d", progress=False, auto_adjust=False))
+    vix_by_day = {ts.date(): float(c) for ts, c in vix.close.items()} if not vix.empty else {}
+    days = []
+    for s in symbols:
+        d = load(s, vix_by_day)
+        print(f"{s}: {len(d)} days")
+        days += d
+    df = collect(days)
+    if df.empty:
         print("No signals."); return
-    all_days = sorted({s["date"] for s in sigs})
-    cut = all_days[int(len(all_days) * 2 / 3)]
-    train = [s for s in sigs if s["date"] < cut]
-    test = [s for s in sigs if s["date"] >= cut]
+    dates = sorted(df.date.unique())
+    cut = dates[int(len(dates) * 2 / 3)]
+    rules, tested = learn(df, cut)
 
-    rows, approved = [], []
-    base = dict(trend=False, vwap=False, rvol=False, morning=False, target=2.0, be=False)
-    for strat, side in sorted({(s["strategy"], s["side"]) for s in sigs}):
-        tr = [s for s in train if s["strategy"] == strat and s["side"] == side]
-        te = [s for s in test if s["strategy"] == strat and s["side"] == side]
-        raw = score(tr + te, base)
-        best_cfg, best = None, None
-        for cfg in GRID:
-            sc = score(tr, cfg)
-            if sc["trades"] >= MIN_TRADES and (best is None or sc["totalR"] > best["totalR"]):
-                best_cfg, best = cfg, sc
-        if best_cfg is None:
-            rows.append([strat, side, raw["trades"], raw["avgR"], "-", "-", "-", "not enough trades"])
-            continue
-        oos = score(te, best_cfg)
-        verdict = "PASS" if best["avgR"] > 0.1 and oos["avgR"] > 0 and oos["trades"] >= 3 else "FAIL"
-        rows.append([strat, side, raw["trades"], raw["avgR"], describe(best_cfg),
-                     f"{best['trades']} tr, {best['avgR']:+.2f}R", f"{oos['trades']} tr, {oos['avgR']:+.2f}R", verdict])
-        if verdict == "PASS":
-            approved.append(dict(strategy=strat, side=side, filters=best_cfg, train=best, test=oos))
-
+    raw = (df.groupby(["strategy", "side"])["R_2.0_False"].agg(["count", "mean"]).round(2)
+           .rename(columns={"count": "signals", "mean": "avg R (raw, 2R)"}).reset_index())
     OUT.mkdir(exist_ok=True)
     stamp = date.today().isoformat()
-    table = pd.DataFrame(rows, columns=["strategy", "side", "raw trades", "raw avg R", "best filters (train)",
-                                        "train", "test (unseen)", "verdict"])
-    lines = [f"# Backtest {stamp}", "",
-             f"Symbols: {', '.join(symbols)} · last {len(all_days)} trading days of 5-minute bars · "
-             f"train before {cut}, test from {cut}", "",
-             "Raw = strategy with no filters. Best filters are chosen on the train days only, then scored on the "
-             "unseen test days. PASS = positive on both (train avg > +0.10R, test avg > 0, at least 3 test trades).", "",
-             table.to_markdown(index=False), "",
-             f"**Passed:** {', '.join(a['strategy'] + ' ' + a['side'] for a in approved) or 'none'}", "",
-             "## How to use this",
-             "- Only PASS combinations have evidence. The performance-reviewer proposes trading those (with their filters) and pausing FAIL ones; you approve in lessons.md.",
-             "- At $5 risk per trade, R × $5 ≈ dollars on a $500 book.",
-             "- Small samples lie. Re-run weekly with more symbols (e.g., the scanner's stocks) and trust results that keep passing."]
+    play = dict(date=stamp, symbols=symbols, train_until=str(cut), combinations_tested=tested,
+                strategies_in_library=list(STRATEGIES), rules=rules)
+    (OUT / "playbook.json").write_text(json.dumps(play, indent=2, default=str))
+    (OUT / "approved.json").write_text(json.dumps(dict(date=stamp, approved=rules), indent=2, default=str))
+
+    lines = [f"# Playbook {stamp}", "",
+             f"{len(STRATEGIES)} strategies × long/short × situations × exits = {tested} combinations tested on "
+             f"{len(symbols)} symbols, {len(dates)} days ({len(df)} signals). Learned on days before {cut}, "
+             f"checked on days from {cut}.", "",
+             f"## Playbook: {len(rules)} rules with an edge on unseen days", ""]
+    if rules:
+        lines += ["| # | situation | strategy | side | exit | learned (trades, avg R) | unseen (trades, avg R, win%) |",
+                  "|---|---|---|---|---|---|---|"]
+        for n, r in enumerate(rules[:40], 1):
+            ex = f"{r['exit']['target']}R" + (" +BE" if r["exit"]["be"] else "")
+            lines.append(f"| {n} | {fmt_when(r['when'])} | {r['strategy']} | {r['side']} | {ex} | "
+                         f"{r['train']['trades']}, {r['train']['avgR']:+.2f} | "
+                         f"{r['test']['trades']}, {r['test']['avgR']:+.2f}, {r['test']['win']}% |")
+    else:
+        lines.append("_No combination held up on unseen days. The desk stays on paper and keeps collecting evidence._")
+    lines += ["", "## Every strategy, no filters (baseline)", "", raw.to_markdown(index=False), "",
+              "## Caution", f"- Testing {tested} combinations means some will pass by luck. Trust rules that keep "
+              "showing up week after week, with many unseen trades.",
+              "- R × $5 ≈ dollars on a $500 book at 1% risk."]
     (OUT / f"report_{stamp}.md").write_text("\n".join(lines) + "\n")
-    (OUT / "approved.json").write_text(json.dumps(dict(date=stamp, symbols=symbols, cut=str(cut), approved=approved),
-                                                  indent=2, default=str))
-    print("\n".join(lines[:9]))
-    print(f"\nReport: {OUT / f'report_{stamp}.md'}")
+    print("\n".join(lines[:min(len(lines), 22)]))
+    print(f"\nPlaybook: {OUT / 'playbook.json'}\nReport:   {OUT / f'report_{stamp}.md'}")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,34 @@
 {
   "date": "2026-10-02",
-  "approved": [
+  "symbols": [
+    "SPY",
+    "QQQ",
+    "NVDA",
+    "AAPL",
+    "MSFT",
+    "AMZN",
+    "META",
+    "TSLA",
+    "AMD",
+    "GOOGL"
+  ],
+  "train_until": "2026-09-03",
+  "combinations_tested": 6888,
+  "strategies_in_library": [
+    "A sweep & reclaim PDH/PDL",
+    "C opening range breakout + retest",
+    "C2 opening range breakout (no retest)",
+    "F VWAP reclaim / reject",
+    "D2 VWAP band fade (mean reversion)",
+    "G gap and go",
+    "G2 gap fill",
+    "I prior-day high/low breakout",
+    "J midday range breakout (afternoon trend)",
+    "K opening drive continuation",
+    "L first pullback after new high/low of day",
+    "M inside bar breakout"
+  ],
+  "rules": [
     {
       "strategy": "D2 VWAP band fade (mean reversion)",
       "side": "long",

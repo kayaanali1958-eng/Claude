@@ -12,7 +12,7 @@ The prompt from the timer gives you the current date and time in ET. If it doesn
 - `desk_state.json`: the desk's memory between runs. You own it.
 - `journal.md`: written by the `journal` subagent only.
 - `news_feeds.md`: the fast news feeds policy-watch and news-analyst read every run.
-- `backtests/`: weekly backtest reports and `approved.json` (strategies with evidence; the live-mode gate).
+- `backtests/`: weekly reports and `playbook.json`, which says which strategy works in which situation (the technical-analyst's first choice and the live-mode gate).
 - `lessons.md`: the performance-reviewer's weekly findings. Proposals marked `[x]` (approved by the user) are rules in force.
 - `.claude/agents/`: market-scanner, earnings-analyst, news-analyst, policy-watch, macro-strategist, congress-trades, technical-analyst, risk-manager, execution-trader, portfolio-manager, journal, performance-reviewer.
 
