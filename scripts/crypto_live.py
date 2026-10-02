@@ -12,7 +12,8 @@ import json, os, re, shutil, subprocess, uuid
 TOOLS = ["get_accounts", "get_portfolio", "get_crypto_quotes", "get_crypto_positions", "get_crypto_orders",
          "preview_crypto_order", "place_crypto_order", "cancel_crypto_order"]
 PREFIXES = ["mcp__robinhood-trading__", "mcp__RobinHood__", "mcp__claude_ai_RobinHood__"]
-ACCOUNT = ("Use only the Agentic account: call get_accounts and pick the one account you are allowed to trade, "
+ACCOUNT = ("Use only the Agentic account (the account ending 0701): call get_accounts and pick that account; "
+           "if it is not there, stop and return ok false. "
            "and pass its rhs_account_number (never rhc_account_number).")
 
 
