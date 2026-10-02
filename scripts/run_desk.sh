@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One desk-manager run. The timer calls this every 5 minutes; it exits early
+# One desk-manager run. The timer calls this every 5 minutes; it runs every 15 and exits early
 # outside Mon–Fri 9:00 AM–4:05 PM ET, so the OS schedule doesn't need to know about time zones.
 set -u
 DESK_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -12,6 +12,13 @@ NOW_ET=$(TZ=America/New_York date '+%Y-%m-%d %H:%M %Z (%A)')
 [ "$DOW" -le 5 ] || exit 0
 [ "$HM" -ge 0900 ] && [ "$HM" -le 1605 ] || exit 0
 [ -f "$DESK_DIR/STOP" ] && exit 0            # kill switch: touch STOP
+# Save the Claude plan's usage (crypto live orders need it too): run every 15 minutes
+# (:00, :15, :30, :45), plus the 15:55 flatten. The timer fires every 5 minutes.
+MIN=$(TZ=America/New_York date +%M)
+if [ $((10#$MIN % 15)) -ge 5 ] && ! { [ "$HM" -ge 1555 ] && [ "$HM" -le 1559 ]; }; then exit 0; fi
+# After a "usage limit" error, pause for an hour instead of failing every run.
+LIMIT="$DESK_DIR/news/usage_limit"
+[ -n "$(find "$LIMIT" -mmin -60 2>/dev/null)" ] && exit 0
 
 # Skip if the previous run is still going (stale after 20 minutes).
 LOCK="$DESK_DIR/.desk.lock"
@@ -53,4 +60,5 @@ echo "===== run $NOW_ET =====" >> "$LOG"
   >> "$LOG" 2>&1
 RC=$?
 echo "===== exit $RC =====" >> "$LOG"
+if [ "$RC" -ne 0 ] && tail -n 5 "$LOG" | grep -qiE 'session limit|usage limit|rate limit'; then touch "$LIMIT"; fi
 python3 scripts/notify.py "$RC" >> logs/notify.log 2>&1

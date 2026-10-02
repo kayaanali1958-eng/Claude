@@ -7,6 +7,13 @@ if ($et.DayOfWeek -in 'Saturday','Sunday') { exit 0 }
 $hm = [int]$et.ToString('HHmm')
 if ($hm -lt 900 -or $hm -gt 1605) { exit 0 }
 if (Test-Path "$DeskDir\STOP") { exit 0 }   # kill switch: create a file named STOP
+# Save the Claude plan's usage (crypto live orders need it too): run every 15 minutes
+# (:00, :15, :30, :45), plus the 15:55 flatten. The timer fires every 5 minutes.
+$m = $et.Minute % 15
+if ($m -ge 5 -and -not ($hm -ge 1555 -and $hm -le 1559)) { exit 0 }
+# After a "usage limit" error, pause for an hour instead of failing every run.
+$limit = "$DeskDir\news\usage_limit"
+if ((Test-Path $limit) -and (Get-Item $limit).LastWriteTime -gt (Get-Date).AddMinutes(-60)) { exit 0 }
 
 # Skip if the previous run is still going (stale after 20 minutes).
 $lock = "$DeskDir\.desk.lock"
@@ -44,5 +51,6 @@ try {
   & claude -p "Desk run. Current time: $now. Follow CLAUDE.md exactly for one run, then stop." --allowedTools @allowed --permission-mode dontAsk *>> $log
   $rc = $LASTEXITCODE
   "===== exit $rc =====" | Add-Content $log
+  if ($rc -ne 0 -and (Get-Content $log -Tail 5 | Select-String -Pattern 'session limit|usage limit|rate limit' -Quiet)) { New-Item -ItemType File $limit -Force | Out-Null }
   & python scripts\notify.py $rc *>> logs\notify.log
 } finally { Remove-Item $lock -Recurse -Force -ErrorAction SilentlyContinue }

@@ -62,12 +62,19 @@ def main():
     state = json.loads(STATE.read_text(encoding="utf-8")) if STATE.exists() else {"journal_len": 0, "fails": 0}
     journal = (ROOT / "journal.md").read_text(encoding="utf-8") if (ROOT / "journal.md").exists() else ""
 
-    if exit_code != 0:
+    last = last_run_output() if exit_code != 0 else ""
+    if exit_code != 0 and re.search(r"session limit|usage limit|rate limit", last, re.I):
+        if not state.get("limited"):              # once per limit, not every run
+            push("Claude usage limit hit", "The stocks desk pauses and retries every hour until the limit resets. "
+                 f"Crypto stops on Robinhood stay in place.\n{last}", "high")
+        state["limited"] = True
+    elif exit_code != 0:
         state["fails"] += 1
         if state["fails"] in (1, 3, 10):          # don't spam: 1st, 3rd and 10th failure in a row
             push("Desk run FAILED", f"Exit code {exit_code}, {state['fails']} failed run(s) in a row.\n"
-                 f"Last output:\n{last_run_output()}", "high")
+                 f"Last output:\n{last}", "high")
     else:
+        state["limited"] = False
         if state["fails"] >= 3:
             push("Desk recovered", "Runs are working again.")
         state["fails"] = 0
