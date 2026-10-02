@@ -13,8 +13,33 @@ import numpy as np
 import pandas as pd
 
 FEE = 0.002          # 0.2% per side: Robinhood's crypto spread is built into the price
-MAX_HOLD = 48        # hours
-EXITS = [dict(target=t, be=b) for t in (1.5, 2.0, 3.0) for b in (False, True)]
+MAX_HOLD = 48        # hours, fixed-target exits
+MAX_HOLD_TRAIL = 168 # hours, trailing exits (let winners run up to a week)
+# Fixed targets, plus trailing exits: no target; once +1R, the stop follows the highest high
+# minus k x ATR, so a trend keeps running until price actually turns down by that much.
+EXITS = ([dict(target=t, be=b, trail=0) for t in (1.5, 2.0, 3.0) for b in (False, True)]
+         + [dict(target=0, be=True, trail=k) for k in (2.0, 3.0, 4.0)])
+
+
+def exit_key(ex):
+    return f"R_trail{ex['trail']}" if ex.get("trail") else f"R_{ex['target']}_{ex['be']}"
+
+
+def exit_label(ex):
+    if ex.get("trail"):
+        return f"trail {ex['trail']}xATR"
+    return f"{ex['target']}R" + (" +BE" if ex["be"] else "")
+
+
+def hold_hours(ex):
+    return MAX_HOLD_TRAIL if ex.get("trail") else MAX_HOLD
+
+
+def trail_stop(stop, entry, risk, high_water, atr, k):
+    """New stop for a trailing exit: breakeven at +1R, then highest high minus k x ATR. Never lowers."""
+    if high_water >= entry + risk:
+        stop = max(stop, entry, high_water - k * atr)
+    return stop
 STRATEGIES = {}
 
 
@@ -188,16 +213,20 @@ def situation(d, i):
 def simulate(d, i, entry, stop):
     """R for every exit variant, walking forward from bar i+1 (fees included)."""
     risk, res = entry - stop, {}
-    H, L, C = d.high.to_numpy(), d.low.to_numpy(), d.close.to_numpy()
-    end = min(len(d) - 1, i + MAX_HOLD)
+    H, L, C, A = d.high.to_numpy(), d.low.to_numpy(), d.close.to_numpy(), d.atr.to_numpy()
     for ex in EXITS:
-        tgt, st, px = entry + ex["target"] * risk, stop, C[end]
+        end = min(len(d) - 1, i + hold_hours(ex))
+        tgt = entry + ex["target"] * risk if ex["target"] else np.inf
+        st, px, hw = stop, C[end], entry
         for j in range(i + 1, end + 1):
             if L[j] <= st:
                 px = st; break
             if H[j] >= tgt:
                 px = tgt; break
-            if ex["be"] and H[j] >= entry + risk:
+            hw = max(hw, H[j])                      # stop changes apply from the next bar
+            if ex["trail"]:
+                st = trail_stop(st, entry, risk, hw, A[j], ex["trail"])
+            elif ex["be"] and H[j] >= entry + risk:
                 st = max(st, entry)
-        res[(ex["target"], ex["be"])] = (px - entry - FEE * (entry + px)) / risk
+        res[exit_key(ex)] = (px - entry - FEE * (entry + px)) / risk
     return res

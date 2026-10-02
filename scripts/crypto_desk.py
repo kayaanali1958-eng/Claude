@@ -3,7 +3,8 @@
 
 Each run:
   1. Rebuilds the crypto playbook if it is older than 1 day (scripts/backtest_crypto.py, ~3 min).
-  2. Manages open paper positions on the latest hourly bars: stop, breakeven, target, 48-hour limit.
+  2. Manages open positions on the latest hourly bars: stop, breakeven, target or trailing stop,
+     time limit (48 hours, or 7 days for trailing exits that let winners run).
   3. Checks every coin for a strategy signal on the last completed hour. A trade is opened only if a
      playbook rule matches: same strategy and every situation condition true right now. It uses the
      rule's exit.
@@ -103,21 +104,24 @@ def manage(st, data):
         exit_px, why = None, None
         for ts, b in bars.iterrows():
             if b.low <= p["stop"]:
-                exit_px, why = p["stop"], "stop"
-            elif b.high >= p["target"]:
+                exit_px, why = p["stop"], "trailing stop" if p.get("trail") and p["stop"] > p["entry"] else "stop"
+            elif p["target"] and b.high >= p["target"]:
                 exit_px, why = p["target"], "target"
+            elif p.get("trail"):
+                p["high"] = max(p.get("high", p["entry"]), b.high)
+                p["stop"] = cl.trail_stop(p["stop"], p["entry"], p["risk"], p["high"], b.atr, p["trail"])
             elif p["be"] and b.high >= p["entry"] + p["risk"]:
                 p["stop"] = max(p["stop"], p["entry"])
-            if exit_px is None and (ts - pd.Timestamp(p["opened"])).total_seconds() >= cl.MAX_HOLD * 3600:
-                exit_px, why = b.close, "48h limit"
+            if exit_px is None and (ts - pd.Timestamp(p["opened"])).total_seconds() >= cl.hold_hours(p) * 3600:
+                exit_px, why = b.close, "time limit"
             p["checked"] = str(ts)
             if exit_px is not None:
                 break
-        if LIVE and exit_px is None and p["be"] and p["stop"] > p.get("live_stop", p["stop"]):
+        if LIVE and exit_px is None and raise_live_stop(p):
             res = crypto_live.move_stop(p["coin"], p["qty"], p["stop_order_id"], p["stop"])
             if res.get("ok"):
                 p["stop_order_id"], p["live_stop"] = res.get("stop_order_id"), p["stop"]
-                log(f"LIVE stop on {p['coin']} raised to breakeven {p['stop']:,.4f}")
+                log(f"LIVE stop on {p['coin']} raised to {p['stop']:,.4f}")
             else:
                 p["stop"] = p.get("live_stop", p["stop"])
                 log(f"LIVE stop move FAILED on {p['coin']}: {res.get('error')}", "Crypto LIVE: check stop")
@@ -160,6 +164,23 @@ def sync_balance(st, today):
         log(f"Book synced to the account: cash ${cash:.2f} ({'added' if delta > 0 else 'removed'} ${abs(delta):.2f})")
 
 
+def replay_passed():
+    """The daily rebuild replays the unseen months as the desk trades them; live needs a profit there."""
+    mode = "all_in" if (os.environ.get("CRYPTO_SIZE") or "").strip().lower() == "all" else "risk_1pct"
+    try:
+        return bool(json.loads(PLAYBOOK.read_text(encoding="utf-8"))["replay"][mode]["profitable"])
+    except Exception:
+        return False
+
+
+def raise_live_stop(p):
+    """Move the real Robinhood stop up only in steps (breakeven, then every +0.5R), so a trailing
+    stop doesn't cost a Claude call every hour. Between steps the desk sells itself if price hits
+    the tighter stop it tracks (checked every 5 minutes)."""
+    live = p.get("live_stop", p["stop"])
+    return p["stop"] > live and (live < p["entry"] <= p["stop"] or p["stop"] - live >= 0.5 * p["risk"])
+
+
 def open_new(st, data, rules):
     prices = {c: float(d.close.iloc[-1]) for c, d in data.items()}
     eq = equity(st, prices)
@@ -170,6 +191,13 @@ def open_new(st, data, rules):
             "Crypto LIVE not configured")
         return
     if st["day"]["realized"] <= -DAILY_LOSS * st["start"]:
+        return
+    if LIVE and not replay_passed():
+        if st.get("gate_logged") != st["day"]["date"]:
+            st["gate_logged"] = st["day"]["date"]
+            log("No live trades today: the playbook lost money when the last months were replayed with this "
+                "sizing (see backtests/crypto_report_*.md). Checked again after each daily rebuild.",
+                "Crypto LIVE: on hold (strategy failed replay)")
         return
     for coin, d in data.items():
         if len(st["positions"]) >= MAX_OPEN or any(p["coin"] == coin for p in st["positions"]):
@@ -207,13 +235,16 @@ def open_new(st, data, rules):
                     log(f"LIVE {coin} filled at {entry} below stop {stop}: exited", "Crypto LIVE: bad fill, exited")
                     continue
             st["cash"] -= cost
-            target = entry + rule["exit"]["target"] * risk
+            ex = rule["exit"]
+            target = entry + ex["target"] * risk if ex["target"] else None
             st["positions"].append(dict(coin=coin, strategy=name, qty=qty, entry=entry, stop=stop, target=target,
-                                        risk=risk, be=rule["exit"]["be"], cost=cost, opened=ts, checked=ts,
+                                        risk=risk, be=ex["be"], trail=ex.get("trail", 0), high=entry,
+                                        cost=cost, opened=ts, checked=ts,
                                         situation=sit, rule=rule["when"], **live))
             w = " & ".join(f"{k}={v}" for k, v in rule["when"].items()) or "any"
-            log(f"{'LIVE' if LIVE else 'PAPER'} BUY {qty:.6f} {coin} @ {entry:,.4f} · stop {stop:,.4f} · target {target:,.4f} "
-                f"({rule['exit']['target']}R{' +BE' if rule['exit']['be'] else ''}) · {name} · situation {w} · "
+            goal = f"target {target:,.4f}" if target else "no target, stop trails up"
+            log(f"{'LIVE' if LIVE else 'PAPER'} BUY {qty:.6f} {coin} @ {entry:,.4f} · stop {stop:,.4f} · {goal} "
+                f"({cl.exit_label(ex)}) · {name} · situation {w} · "
                 f"rule unseen {rule['test']['avgR']:+.2f}R over {rule['test']['trades']}",
                 f"Crypto buy: {coin}")
             break
@@ -244,12 +275,14 @@ def quick_manage(st):
             continue
         why = None
         if px <= p["stop"]:
-            why = "stop"
-        elif px >= p["target"]:
+            why = "trailing stop" if p.get("trail") and p["stop"] > p["entry"] else "stop"
+        elif p["target"] and px >= p["target"]:
             why = "target"
-        elif (datetime.now(timezone.utc) - pd.Timestamp(p["opened"]).to_pydatetime()).total_seconds() >= cl.MAX_HOLD * 3600:
-            why = "48h limit"
+        elif (datetime.now(timezone.utc) - pd.Timestamp(p["opened"]).to_pydatetime()).total_seconds() >= cl.hold_hours(p) * 3600:
+            why = "time limit"
         if why is None:
+            if p.get("trail"):
+                p["high"] = max(p.get("high", p["entry"]), px)      # trail itself moves on hourly closes
             if p["be"] and px >= p["entry"] + p["risk"] and p["stop"] < p["entry"]:
                 p["stop"] = p["entry"]
                 if LIVE:
@@ -263,7 +296,7 @@ def quick_manage(st):
                 else:
                     log(f"PAPER stop on {p['coin']} raised to breakeven {p['stop']:,.4f}")
             continue
-        exit_px = p["stop"] if why == "stop" else px
+        exit_px = p["stop"] if why.endswith("stop") else px
         if LIVE:
             res = crypto_live.sell_all(p["coin"], p["stop_order_id"], why)
             if not res.get("ok"):
