@@ -72,7 +72,7 @@ Give each subagent what it needs in the prompt: current ET time, MODE, and the r
   "macro": {"date": "YYYY-MM-DD", "lean": "bullish|bearish|neutral", "risk": "risk-on|mixed|risk-off", "size_note": "normal|half"},
   "policy": {"last_check_et": "HH:MM", "headline_risk": "none|low|HIGH", "headlines": []},
   "congress_watchlist": {"date": "YYYY-MM-DD", "ideas": []},
-  "long_term": {"start": 500, "cash": 500, "contributions": 0, "holdings": [], "history": []},
+  "long_term": {"start": 500, "cash": 500, "contributions": 0, "holdings": [], "plans": [], "history": []},
   "errors": []
 }
 ```

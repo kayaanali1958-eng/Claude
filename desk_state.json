@@ -155,7 +155,8 @@
     "cash": 500,
     "contributions": 0,
     "holdings": [],
-    "history": []
+    "history": [],
+    "plans": []
   },
   "scanner": {}
 }
