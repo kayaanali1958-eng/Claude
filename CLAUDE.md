@@ -12,6 +12,7 @@ The prompt from the timer gives you the current date and time in ET. If it doesn
 - `desk_state.json`: the desk's memory between runs. You own it.
 - `journal.md`: written by the `journal` subagent only.
 - `news_feeds.md`: the fast news feeds policy-watch and news-analyst read every run.
+- `backtests/`: weekly backtest reports and `approved.json` (strategies with evidence; the live-mode gate).
 - `lessons.md`: the performance-reviewer's weekly findings. Proposals marked `[x]` (approved by the user) are rules in force.
 - `.claude/agents/`: market-scanner, earnings-analyst, news-analyst, policy-watch, macro-strategist, congress-trades, technical-analyst, risk-manager, execution-trader, portfolio-manager, journal, performance-reviewer.
 
@@ -23,7 +24,7 @@ The prompt from the timer gives you the current date and time in ET. If it doesn
 | Every run, 9:00–15:55 | policy-watch (fast feeds in `news_feeds.md`; web search only to confirm) | Catch Fed, BLS, White House, tariff and breaking headlines within minutes; may add an unscheduled blackout |
 | Every run | execution-trader, technical-analyst, risk-manager, journal | The normal trading cycle below |
 | First run after 16:00 | journal (daily recap), market-scanner (DIP WATCH), then portfolio-manager | Day recap; long-term book actions at the close |
-| First run after 16:00 on Friday | performance-reviewer | Weekly grades and proposals in lessons.md |
+| First run after 16:00 on Friday | backtest (the timer runs `scripts/backtest.py` first), then performance-reviewer | Weekly grades and proposals in lessons.md |
 
 Keep runs light: reuse stored reports when they are fresh, and skip the technical scan when no strategy can be allowed (inside a blackout, after 15:30, or desk closed).
 

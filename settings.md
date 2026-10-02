@@ -49,6 +49,11 @@ This book is separate from the day-trading books and never uses leverage, invers
 
 Account: Agentic (Robinhood account ending 0701, the only account the agent may trade)
 
+## Evidence gate
+- Paper mode: every strategy may trade, so the desk keeps collecting evidence.
+- **Live mode: only strategy + side combinations marked PASS in `backtests/approved.json`, and only with the filters listed there.** Everything else is signal only. The backtest re-runs every Friday after the close.
+- Market fear check: if the VIX is above 30, every trade is half size; above 40, no new trades.
+
 ## Hard rules
 - No margin: a position's total cost must never exceed the book's cash.
 - Buy only, never short (shorting needs margin). Bearish setups are taken by buying the inverse ETF.

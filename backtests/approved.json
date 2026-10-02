@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-02",
+  "symbols": [
+    "SPY",
+    "QQQ",
+    "NVDA",
+    "AAPL",
+    "MSFT",
+    "AMZN",
+    "META",
+    "TSLA",
+    "AMD",
+    "GOOGL"
+  ],
+  "cut": "2026-09-03",
+  "approved": [
+    {
+      "strategy": "G gap&go",
+      "side": "long",
+      "filters": {
+        "trend": false,
+        "vwap": true,
+        "rvol": false,
+        "morning": false,
+        "target": 3.0,
+        "be": true
+      },
+      "train": {
+        "trades": 38,
+        "win": 34,
+        "avgR": 0.18,
+        "totalR": 7.0,
+        "dd": 5.4
+      },
+      "test": {
+        "trades": 38,
+        "win": 24,
+        "avgR": 0.01,
+        "totalR": 0.2,
+        "dd": 6.5
+      }
+    }
+  ]
+}
