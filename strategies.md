@@ -15,7 +15,7 @@ Every run, for each symbol, the technical-analyst:
 When several match, take the rule with the best unseen-data result, then the most unseen trades. New strategies get added to the library in `scripts/backtest.py`; the playbook decides automatically where each one works.
 
 ### Playbook strategy library (exact rules in `scripts/backtest.py`)
-- **A** sweep & reclaim of the prior-day high/low · **C** ORB + retest · **C2** ORB breakout, no retest · **F** VWAP reclaim/reject
+- **A** sweep & reclaim of the prior-day high/low · **A2** sweep & reclaim of the day's last swing low/high (liquidity under/over intraday swings) · **C** ORB + retest · **C2** ORB breakout, no retest · **F** VWAP reclaim/reject
 - **D2** VWAP band fade: price stretched 2 standard deviations from VWAP, then a reversal bar; target VWAP
 - **G** gap and go · **G2** gap fill · **I** prior-day high/low breakout on volume · **J** midday range breakout after 13:30
 - **K** opening drive: a strong first 15 minutes (±0.4%) continued at 9:50 on the right side of VWAP

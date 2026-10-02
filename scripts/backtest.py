@@ -68,6 +68,24 @@ def s_sweep(D, i):
         yield "short", D.c[i], hi + 0.02
 
 
+@strategy("A2 sweep & reclaim of an intraday swing low/high")
+def s_sweep_swing(D, i):
+    """Liquidity rests under the day's earlier swing lows (above swing highs). A run through that level
+    that closes back inside within the same bar is a sweep; trade the reclaim."""
+    if not dtime(10, 0) <= D.t[i] <= dtime(15, 0) or i < 8:
+        return
+    lows = [k for k in range(1, i - 5) if D.l[k] < D.l[k - 1] and D.l[k] < D.l[k + 1]]
+    highs = [k for k in range(1, i - 5) if D.h[k] > D.h[k - 1] and D.h[k] > D.h[k + 1]]
+    if lows:
+        lvl = D.l[lows[-1]]
+        if D.l[i] < lvl and D.c[i] > lvl and D.l[lows[-1] + 1:i].min() >= lvl:
+            yield "long", D.c[i], D.l[i] - 0.02
+    if highs:
+        lvl = D.h[highs[-1]]
+        if D.h[i] > lvl and D.c[i] < lvl and D.h[highs[-1] + 1:i].max() <= lvl:
+            yield "short", D.c[i], D.h[i] + 0.02
+
+
 @strategy("C opening range breakout + retest")
 def s_orb(D, i):
     if not dtime(9, 50) <= D.t[i] <= dtime(10, 45) or D.orw <= 0:

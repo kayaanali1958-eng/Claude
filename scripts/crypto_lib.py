@@ -1,5 +1,9 @@
 """Shared crypto strategy library, situations and indicators (1-hour bars, UTC).
 
+Liquidity: stops and resting orders cluster just beyond obvious levels (prior-day high/low, the Asia
+session range, equal highs/lows). Price often runs those levels (a "sweep") and then reverses.
+T9-T11 trade that reversal; breakouts (T2, T6) trade the moves that don't reverse.
+
 Used by scripts/backtest_crypto.py (learning) and scripts/crypto_desk.py (paper trading), so the
 desk trades exactly what was tested. Long only: Robinhood crypto can't be shorted.
 
@@ -41,6 +45,15 @@ def prepare(df, btc_daily_trend=None):
     day = df.index.floor("D")
     tp = (h + l + c) / 3
     df["vwap"] = (tp * v).groupby(day).cumsum() / v.groupby(day).cumsum()
+    # prior UTC day high/low (liquidity resting above/below)
+    dd = df.resample("1D").agg({"high": "max", "low": "min"})
+    df["pdh"] = day.map(dd.high.shift(1))
+    df["pdl"] = day.map(dd.low.shift(1))
+    # equal lows: two swing lows within 0.1% of each other in the last 48 hours (stops cluster below)
+    swing = (l < l.shift(1)) & (l < l.shift(-1))
+    sl = l.where(swing.shift(1, fill_value=False)).ffill()        # last confirmed swing low
+    sl_prev = l.where(swing.shift(1, fill_value=False)).dropna().shift(1).reindex(df.index).ffill()
+    df["eq_low"] = np.where((sl - sl_prev).abs() / sl < 0.001, np.minimum(sl, sl_prev), np.nan)
     # Asia range (00-08 UTC) of the same day
     asia = df[df.index.hour < 8]
     df["asia_hi"] = day.map(asia.high.groupby(asia.index.floor("D")).max())
@@ -122,6 +135,36 @@ def s_bb_rev(d, i):
     r, p = d.iloc[i], d.iloc[i - 1]
     if p.close < p.bb_lo and r.close > r.bb_lo and r.close > p.high:
         return r.close, min(p.low, r.low) - 0.2 * r.atr
+
+
+@strategy("T9 sweep of prior-day low & reclaim")
+def s_sweep_pdl(d, i):
+    r, p = d.iloc[i], d.iloc[i - 1]
+    if np.isnan(r.pdl):
+        return
+    lo = d.low.iloc[max(0, i - 3):i + 1].min()
+    if lo < r.pdl and r.close > r.pdl and p.close <= r.pdl * 1.002:
+        return r.close, lo - 0.2 * r.atr
+
+
+@strategy("T10 Asia-low sweep in Europe/US & reclaim")
+def s_sweep_asia(d, i):
+    r = d.iloc[i]
+    if not 8 <= d.index[i].hour < 20 or np.isnan(r.asia_lo):
+        return
+    lo = d.low.iloc[max(0, i - 3):i + 1].min()
+    if lo < r.asia_lo and r.close > r.asia_lo and d.iloc[i - 1].close <= r.asia_lo * 1.002:
+        return r.close, lo - 0.2 * r.atr
+
+
+@strategy("T11 equal-lows sweep & reclaim")
+def s_sweep_eq(d, i):
+    r, p = d.iloc[i], d.iloc[i - 1]
+    lvl = p.eq_low
+    if np.isnan(lvl):
+        return
+    if r.low < lvl and r.close > lvl and r.close > r.open:
+        return r.close, r.low - 0.2 * r.atr
 
 
 def signals_at(d, i):
