@@ -2,7 +2,7 @@
 """Crypto paper desk: runs every hour, 24/7, with no Claude usage.
 
 Each run:
-  1. Rebuilds the crypto playbook if it is older than 7 days (scripts/backtest_crypto.py, ~3 min).
+  1. Rebuilds the crypto playbook if it is older than 1 day (scripts/backtest_crypto.py, ~3 min).
   2. Manages open paper positions on the latest hourly bars: stop, breakeven, target, 48-hour limit.
   3. Checks every coin for a strategy signal on the last completed hour. A trade is opened only if a
      playbook rule matches: same strategy and every situation condition true right now. It uses the
@@ -82,9 +82,9 @@ def refresh_playbook():
     stale = True
     if PLAYBOOK.exists():
         age = time.time() - PLAYBOOK.stat().st_mtime
-        stale = age > 7 * 86400
+        stale = age > 86400                    # rebuild daily with the newest data
     if stale:
-        log("Rebuilding crypto playbook (weekly)…")
+        log("Rebuilding crypto playbook (daily)")
         subprocess.run([sys.executable, str(ROOT / "scripts" / "backtest_crypto.py")], cwd=ROOT,
                        stdout=open(ROOT / "logs" / "backtest_crypto.log", "a", encoding="utf-8"), stderr=subprocess.STDOUT)
     return json.loads(PLAYBOOK.read_text(encoding="utf-8")).get("rules", []) if PLAYBOOK.exists() else []

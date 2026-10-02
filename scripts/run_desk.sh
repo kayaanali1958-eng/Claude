@@ -40,9 +40,9 @@ if [ -f .env ] && ! { [ -f news/listener.pid ] && kill -0 "$(cat news/listener.p
 fi
 # Give the agents the newest 200 items.
 [ -f news/live.jsonl ] && tail -n 200 news/live.jsonl > news/latest.jsonl
-# Friday after the close: refresh the backtest (SPY, QQQ, mega-caps) before the review.
+# Every weekday after the close: rebuild the playbook with today's data before the review.
 BT_SYMBOLS="SPY QQQ NVDA AAPL MSFT AMZN META TSLA AMD GOOGL"
-if [ "$DOW" -eq 5 ] && [ "$HM" -ge 1600 ] && [ ! -f "backtests/report_$(date +%F).md" ]; then
+if [ "$HM" -ge 1600 ] && [ ! -f "backtests/report_$(date +%F).md" ]; then
   python3 scripts/backtest.py $BT_SYMBOLS >> logs/backtest.log 2>&1
 fi
 LOG="logs/desk-$(TZ=America/New_York date +%F).log"

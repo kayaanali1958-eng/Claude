@@ -34,8 +34,8 @@ try {
     $p.Id | Set-Content $pidFile
   }
   if (Test-Path 'news\live.jsonl') { Get-Content 'news\live.jsonl' -Tail 200 | Set-Content 'news\latest.jsonl' }
-  # Friday after the close: refresh the backtest (SPY, QQQ, mega-caps) before the review.
-  if ($et.DayOfWeek -eq 'Friday' -and $hm -ge 1600 -and -not (Test-Path "backtests\report_$(Get-Date -Format yyyy-MM-dd).md")) {
+  # Every weekday after the close: rebuild the playbook with today's data before the review.
+  if ($hm -ge 1600 -and -not (Test-Path "backtests\report_$(Get-Date -Format yyyy-MM-dd).md")) {
     & python scripts\backtest.py SPY QQQ NVDA AAPL MSFT AMZN META TSLA AMD GOOGL *>> logs\backtest.log
   }
   $log = "logs\desk-$($et.ToString('yyyy-MM-dd')).log"

@@ -25,7 +25,8 @@ The prompt from the timer gives you the current date and time in ET. If it doesn
 | Every run, 9:00–15:55 | policy-watch (fast feeds in `news_feeds.md`; web search only to confirm) | Catch Fed, BLS, White House, tariff and breaking headlines within minutes; may add an unscheduled blackout |
 | Every run | execution-trader, technical-analyst, risk-manager, journal | The normal trading cycle below |
 | First run after 16:00 | journal (daily recap), market-scanner (DIP WATCH), then portfolio-manager | Day recap; long-term book actions at the close |
-| First run after 16:00 on Friday | backtest (the timer runs `scripts/backtest.py` first), then performance-reviewer | Weekly grades and proposals in lessons.md |
+| First run after 16:00, every trading day | playbook rebuild (the timer runs `scripts/backtest.py` first), then performance-reviewer in daily mode |
+| First run after 16:00 on Friday | performance-reviewer in weekly mode (full grades) | Weekly grades and proposals in lessons.md |
 
 Keep runs light: reuse stored reports when they are fresh, and skip the technical scan when no strategy can be allowed (inside a blackout, after 15:30, or desk closed).
 
@@ -36,7 +37,7 @@ Robinhood tools may appear as `mcp__robinhood-trading__*`, `mcp__RobinHood__*`, 
    - If `desk_state.json` is empty (`{}`) or its `date` is not today (ET), start a new day: carry over `day_trades_5d` (drop entries older than 5 business days) and reset everything else to the schema below. Then have **news-analyst** do the premarket report and store its condition and blackouts in state.
    - If the market is closed today (weekend or exchange holiday, or no regular-hours bars by 9:40 AM ET), log "market closed" through journal and stop.
 2. **Daily loss check.** If realized + open P&L ≤ −Max daily loss: have **execution-trader** cancel all orders and close all positions, set `desk_closed: true` and `desk_closed_reason`, have **journal** log it, and stop. If `desk_closed` is already true, take no new trades; only make sure you are flat.
-3. **End of day.** If it is 3:55 PM ET or later: have **execution-trader** flatten (cancel all orders, close all positions). After 4:00 PM ET, if `recap_written` is false, have **journal** write the daily recap and set `recap_written: true`, then have **portfolio-manager** run the long-term book and save its actions under `long_term`. On Fridays, then have **performance-reviewer** update `lessons.md`. Stop.
+3. **End of day.** If it is 3:55 PM ET or later: have **execution-trader** flatten (cancel all orders, close all positions). After 4:00 PM ET, if `recap_written` is false, have **journal** write the daily recap and set `recap_written: true`, then have **portfolio-manager** run the long-term book and save its actions under `long_term`. Then have **performance-reviewer** update `lessons.md` (daily mode every day; weekly mode on Fridays). Stop.
 4. **Normal cycle** (before 3:55 PM ET):
    1. If a live headline in `news/latest.jsonl` names a watchlist stock or a mega-cap, have **earnings-analyst** grade it before the technical scan.
    **news-analyst**: refresh only if the stored report is older than 60 minutes or a blackout is within 30 minutes; otherwise reuse the stored report. **policy-watch**: run every run (feeds only, so it stays fast); add any unscheduled blackout it returns to `news.blackouts`, and treat HIGH headline risk as a news-driven regime.

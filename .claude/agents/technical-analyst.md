@@ -16,6 +16,9 @@ Use Robinhood `get_equity_historicals` (bounds `regular` unless noted) and `get_
 - VWAP: compute from today's 1m bars (sum of typical price × volume ÷ sum of volume).
 All bar times are UTC; convert to ET. If bars are missing, stale (latest bar more than 3 minutes old during regular hours), or `interpolated`, report a data problem and return "no setup".
 
+## Step -1: Recent lessons
+Read the last 5 `## Day` entries and the approved rules in `lessons.md`. Don't repeat a mistake listed there, and apply every approved rule.
+
 ## Step 0: Situation and playbook
 Read `backtests/playbook.json`. Compute the situation fields exactly as strategies.md section 0 defines them (you need daily bars for the 20/50-day averages and yesterday's range, and the VIX from get_index_quotes). List the matching playbook rules, best first, and look for those setups before anything else. In your report add: `Situation: trend=… gap=… vol=… vix=… time=… vwap=…` and `Playbook matches: <rule numbers and strategies, or none>`.
 

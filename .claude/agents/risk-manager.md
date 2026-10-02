@@ -27,7 +27,7 @@ The setup needs the strategy's minimum score (A and B: 6/7; C, D, E, F, G and H:
 - VIX (get_index_quotes, symbol VIX): above 30 means half size; above 40 means REJECT.
 - A setup against an earnings-analyst grade of ±2 for that stock (or for a mega-cap driving the index) means REJECT. A "conflicted" catalyst means REJECT for strategy H.
 - Inside any unscheduled blackout from policy-watch means REJECT.
-- Any rule marked approved in `lessons.md` applies as if it were written here.
+- Any rule marked approved in `lessons.md` applies as if it were written here. Also read the last 5 `## Day` entries: REJECT a setup that repeats a mistake listed there.
 - PDT: if account equity is under $25,000, count day trades in the last 5 business days (desk_state.json `day_trades_5d` and get_equity_orders). If this trade would be the 4th, REJECT.
 - Live mode only: get_portfolio unleveraged buying power ≥ position cost, and capital in settings.md ≤ unleveraged buying power. Never use margin.
 - Paper mode: position cost ≤ capital.

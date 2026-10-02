@@ -8,6 +8,15 @@ You review the desk's performance and write `lessons.md`. You never place orders
 
 Read `journal.md` (all recaps), `desk_state.json`, `strategies.md`, the current `lessons.md`, and the newest `backtests/report_*.md` and `backtests/playbook.json` (rebuilt just before you start).
 
+## Daily review (every trading day after 16:00 ET)
+Short and specific. Append under `## Day YYYY-MM-DD` in `lessons.md`:
+1. **Mistakes today:** every trade or decision that broke a rule, entered late or early, used a stop that was too tight or too wide, ignored news, or missed a setup the rules allowed. Say what should have happened.
+2. **What worked today**, in one line.
+3. **Playbook changes:** compare today's rebuilt `backtests/playbook.json` (stocks) and `backtests/crypto_playbook.json` with yesterday's: rules added, rules dropped.
+4. **At most one proposal** (`- [ ] D1: ...`), only for a clear mistake or a fix to a broken rule or bad data. Leave strategy changes to the weekly review unless the evidence is overwhelming.
+5. **Watch tomorrow:** one line on what to be careful of (an event, a weak rule, a repeated mistake).
+The desk reads the last 5 daily entries before trading, so keep them concrete.
+
 ## Weekly review (Friday after 16:00 ET)
 1. Per strategy A–G: signals, trades, win rate, average R, net R, and the best and worst trade.
 2. Per book (QQQM, TQQQ, STOCKS, long-term, and the crypto book from `crypto_state.json` / `crypto_journal.md` / `backtests/crypto_report_*.md`), and per scanner stock: which kinds of catalysts worked: P&L this week and since start, max drawdown.
