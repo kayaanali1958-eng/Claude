@@ -25,6 +25,15 @@ try {
   foreach ($p in 'mcp__robinhood-trading__','mcp__RobinHood__','mcp__claude_ai_RobinHood__') { foreach ($t in $rh) { $allowed += "$p$t" } }
 
   New-Item -ItemType Directory logs -Force | Out-Null
+  New-Item -ItemType Directory news -Force | Out-Null
+  # Keep the live news listener running (no-op if already running or no keys in .env).
+  $pidFile = 'news\listener.pid'
+  $running = (Test-Path $pidFile) -and (Get-Process -Id (Get-Content $pidFile) -ErrorAction SilentlyContinue)
+  if ((Test-Path '.env') -and -not $running) {
+    $p = Start-Process python -ArgumentList 'scripts\news_listener.py' -WindowStyle Hidden -PassThru -RedirectStandardOutput 'logs\news_listener.log' -RedirectStandardError 'logs\news_listener.err'
+    $p.Id | Set-Content $pidFile
+  }
+  if (Test-Path 'news\live.jsonl') { Get-Content 'news\live.jsonl' -Tail 200 | Set-Content 'news\latest.jsonl' }
   $log = "logs\desk-$($et.ToString('yyyy-MM-dd')).log"
   $now = $et.ToString('yyyy-MM-dd HH:mm') + ' ET (' + $et.DayOfWeek + ')'
   "===== run $now =====" | Add-Content $log

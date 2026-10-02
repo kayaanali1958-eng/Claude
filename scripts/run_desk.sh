@@ -32,7 +32,14 @@ for p in mcp__robinhood-trading__ mcp__RobinHood__ mcp__claude_ai_RobinHood__; d
   for t in $RH_TOOLS; do ALLOWED="$ALLOWED $p$t"; done
 done
 
-mkdir -p logs
+mkdir -p logs news
+# Keep the live news listener running (no-op if already running or no keys in .env).
+if [ -f .env ] && ! { [ -f news/listener.pid ] && kill -0 "$(cat news/listener.pid)" 2>/dev/null; }; then
+  nohup python3 scripts/news_listener.py >> logs/news_listener.log 2>&1 &
+  echo $! > news/listener.pid
+fi
+# Give the agents the newest 200 items.
+[ -f news/live.jsonl ] && tail -n 200 news/live.jsonl > news/latest.jsonl
 LOG="logs/desk-$(TZ=America/New_York date +%F).log"
 echo "===== run $NOW_ET =====" >> "$LOG"
 "$CLAUDE_BIN" -p "Desk run. Current time: $NOW_ET. Follow CLAUDE.md exactly for one run, then stop." \

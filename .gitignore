@@ -1,3 +1,6 @@
 logs/
 .desk.lock/
 STOP
+.env
+news/
+__pycache__/

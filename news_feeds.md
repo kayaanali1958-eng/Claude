@@ -23,6 +23,9 @@ Only items newer than the agent's last check matter. Note each item's publish ti
 
 Blocked or unreliable from the cloud test (may work from a laptop): CNBC RSS (403), Treasury press releases (timed out), MarketWatch (redirects).
 
+## Live listener (fastest; runs on your laptop)
+`scripts/news_listener.py` streams Alpaca real-time news and polls key X accounts, writing to `news/live.jsonl`. The timer starts it automatically when `.env` has keys and copies the newest 200 items to `news/latest.jsonl` each run. Setup: copy `.env.example` to `.env`, add keys, then `pip install websockets`.
+
 ## Faster still (needs an account; optional)
 - **X API** (paid): read @WhiteHouse, @POTUS and the President's account directly. Add an X MCP server to Claude Code; policy-watch uses `mcp__x__*` tools first if present.
 - **Benzinga / Finnhub / Alpaca news API**: wire-speed headlines. Add as an MCP server or a feed URL here.
