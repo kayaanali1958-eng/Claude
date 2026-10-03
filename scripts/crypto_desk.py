@@ -75,6 +75,17 @@ def fund_price(symbol):
 
 def close_fund(st, p, why):
     """Sell a 2x-fund position. Outside market hours, mark it and sell at the next open."""
+    today = datetime.now(ET).date()
+    same_day = pd.Timestamp(p["opened"]).tz_convert(ET).date() == today
+    recent = [d for d in st.setdefault("day_trades", []) if (today - datetime.fromisoformat(d).date()).days < 7]
+    st["day_trades"] = recent
+    if same_day and len(recent) >= 3:                # pattern day trader rule: max 3 in 5 business days
+        if p.get("exit_pending") != why:
+            p["exit_pending"] = why
+            log(f"{p['fund']} exit signal ({why}) on the day it was bought, but 3 day trades are already used "
+                f"this week: holding to the next open (the stop order on Robinhood still protects it)",
+                "Crypto LIVE: day-trade limit, holding overnight")
+        return False
     if not market_open():
         if p.get("exit_pending") != why:
             p["exit_pending"] = why
@@ -88,6 +99,8 @@ def close_fund(st, p, why):
         px = float(res.get("avg_price") or fund_price(p["fund"]))
     else:
         px = fund_price(p["fund"])
+    if same_day:
+        st["day_trades"].append(today.isoformat())
     proceeds = p["fund_qty"] * px * (1 - FUND_COST)
     pnl = proceeds - p["cost"]
     st["cash"] += proceeds
