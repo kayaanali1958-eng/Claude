@@ -167,9 +167,10 @@ def main():
     df = pd.DataFrame(rows)
     cut = df.ts.min() + (df.ts.max() - df.ts.min()) * 2 / 3
     rules, tested = learn(df, cut)
-    gate = {"all_in": replay(prepared, rules, cut, True),
-            "risk_1pct": replay(prepared, rules, cut, False, risk=0.01),
-            "risk_2pct": replay(prepared, rules, cut, False, risk=0.02)}
+    traded = {c: d for c, d in prepared.items() if c in cl.TRADE_COINS}      # replay what the desk trades
+    gate = {"all_in": replay(traded, rules, cut, True),
+            "risk_1pct": replay(traded, rules, cut, False, risk=0.01),
+            "risk_2pct": replay(traded, rules, cut, False, risk=0.02)}
     for mode, g in gate.items():
         print(f"Replay of the unseen period ({mode}): {g}")
     base = df.groupby("strategy")["R_2.0_False"].agg(["count", "mean"]).round(2).rename(

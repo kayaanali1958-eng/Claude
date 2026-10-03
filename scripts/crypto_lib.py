@@ -47,6 +47,9 @@ STRATEGIES = {}
 # uptrend, and the ~0.4% round-trip cost eats too much of a tight stop, so the stop must be at
 # least MIN_STOP_PCT away. Tested 2024-26: positive in both halves only with both filters on.
 MIN_STOP_PCT = 0.015
+# Coins the desk trades. SOL and LINK are still learned from but not traded: in the 2024-26 replay
+# the desk did better without them in both halves of the data (LINK dragged results in both).
+TRADE_COINS = ["BTC", "ETH", "XRP", "DOGE", "AVAX", "LTC"]
 
 
 def tradeable(sit, entry, stop):

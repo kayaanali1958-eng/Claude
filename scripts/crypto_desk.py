@@ -40,7 +40,7 @@ LIVE = crypto_mode() == "live"
 STATE = ROOT / ("crypto_live_state.json" if LIVE else "crypto_state.json")
 JOURNAL = ROOT / ("crypto_live_journal.md" if LIVE else "crypto_journal.md")
 PLAYBOOK = ROOT / "backtests" / "crypto_playbook.json"
-COINS = ["BTC", "ETH", "SOL", "XRP", "DOGE", "AVAX", "LINK", "LTC"]
+COINS = cl.TRADE_COINS
 START = 100.0
 RISK = 0.01
 DAILY_LOSS = 0.03
@@ -49,7 +49,7 @@ MAX_OPEN = 2
 # CRYPTO_LEVERAGE=2 in .env: during US market hours, a signal on these coins buys the 2x fund instead
 # (whole shares, real stop order). Exits follow the coin's signals; a fund can only be sold while the
 # stock market is open, so an exit at night or on a weekend is carried out at the next open.
-FUNDS_2X = {"BTC": "BITX", "ETH": "ETHU", "SOL": "SOLT", "XRP": "XXRP"}
+FUNDS_2X = {"BTC": "BITX", "ETH": "ETHU", "XRP": "XXRP"}
 FUND_COST = 0.001
 ET = ZoneInfo("America/New_York")
 
