@@ -229,7 +229,8 @@ def milestones(st, total):
             hit.append(m)
             if m == GOAL:
                 log(f"GOAL: the account is worth ${total:,.2f}. Phase 2: time to split it into long-term funds "
-                    "(see ai_portfolio_journal.md for the plan it has been practising).", "Account hit $1,000!")
+                    "(see ai_portfolio_journal.md for the plan it has been practising). Next: connect the AI stocks "
+                    "and funds to real orders, then options.", "Account hit $1,000!")
             else:
                 log(f"Milestone: the account is worth ${total:,.2f} ({total / GOAL:.0%} of the ${GOAL:,} goal).",
                     f"Account passed ${m}")

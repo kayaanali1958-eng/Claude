@@ -66,6 +66,7 @@ Paper start: $100. Live: the book is CRYPTO_LIVE_MAX from .env: a dollar amount 
 ## The plan: $1,000, then long-term funds
 - **Phase 1 (until the Agentic account is worth $1,000):** the crypto desk grows the cash. It checks the whole account value once a day and alerts at $100, $250, $500 and $1,000.
 - **Phase 2 (from $1,000):** split into long-term funds, run by scripts/ai_portfolio.py: S&P 500 (VOO) 35%, Nasdaq-100 (QQQM) 20%, chip makers (SMH) 15%, and an AI slice of 30%: the 4 strongest AI build-out stocks (chips, memory, chip equipment, networking/servers, power/cooling, data centers, cloud builders) above their 200-day average, ranked by 6-month return, weekly; an AI stock is sold on a 15% drop from its high. Funds are rebalanced weekly when they drift.
+- **Phase 3 (after phase 2 is running):** options on the AI stocks, only with defined risk (bought calls or call spreads, never selling naked options), sized like the crypto desk and tested the same way before any real order. Needs options approval on the Robinhood account.
 - Until the switch it runs as paper (AI_PORTFOLIO_START in .env, default $1,000) so the plan is already tested. Backtest: backtests/ai_portfolio_backtest.md.
 
 ## Evidence gate
