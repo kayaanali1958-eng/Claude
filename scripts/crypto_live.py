@@ -76,3 +76,27 @@ def balance():
                "fund and crypto position). Do not place, preview or cancel anything. "
                "RESULT keys: ok, cash (a number in dollars), total (a number in dollars).",
                tools=["get_accounts", "get_portfolio", "get_crypto_positions"])
+
+
+# 2x crypto funds (stocks on Robinhood, market hours only). Whole shares, so a real stop order is allowed.
+FUND_TOOLS = ["get_accounts", "get_portfolio", "get_equity_quotes", "get_equity_positions", "get_equity_orders",
+              "review_equity_order", "place_equity_order", "cancel_equity_order"]
+
+
+def buy_fund(symbol, shares, stop):
+    return run(
+        f"Stock order, not crypto (ignore the crypto preview rule; use review_equity_order before every "
+        f"place_equity_order instead). Buy {shares} whole shares of {symbol} with a market order during regular "
+        f"hours. Wait until it is filled (check get_equity_orders, up to 2 minutes). Then place a SELL stop order "
+        f"(stop loss, good till canceled, regular hours) for the filled shares at stop price {stop:.2f}. If the buy "
+        f"filled but the stop order fails, retry once; if it still fails, sell the filled shares at market. "
+        f"RESULT keys: ok, filled_qty, avg_price, buy_order_id, stop_order_id.", tools=FUND_TOOLS)
+
+
+def sell_fund(symbol, stop_order_id, reason):
+    return run(
+        f"Stock order, not crypto (use review_equity_order before place_equity_order). Exit the {symbol} position "
+        f"({reason}). If order {stop_order_id} is still open, cancel it and confirm. Then check get_equity_positions: "
+        f"if any {symbol} shares are left, sell all of them with a market order and wait for the fill. If the stop "
+        f"order already filled, don't sell again. RESULT keys: ok, sold_qty, avg_price (the price the position "
+        f"was actually closed at), how ('stop' or 'market').", tools=FUND_TOOLS)

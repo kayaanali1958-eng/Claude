@@ -19,6 +19,7 @@ Settings live in settings.md (Crypto book) and are mirrored in the constants bel
 import json, os, subprocess, sys, time
 from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import yfinance as yf
@@ -45,6 +46,59 @@ RISK = 0.01
 DAILY_LOSS = 0.03
 MAX_DRAWDOWN = 0.10
 MAX_OPEN = 2
+# CRYPTO_LEVERAGE=2 in .env: during US market hours, a signal on these coins buys the 2x fund instead
+# (whole shares, real stop order). Exits follow the coin's signals; a fund can only be sold while the
+# stock market is open, so an exit at night or on a weekend is carried out at the next open.
+FUNDS_2X = {"BTC": "BITX", "ETH": "ETHU", "SOL": "SOLT", "XRP": "XXRP"}
+FUND_COST = 0.001
+ET = ZoneInfo("America/New_York")
+
+
+def leverage_on():
+    return (os.environ.get("CRYPTO_LEVERAGE") or "").strip() == "2"
+
+
+def market_open(now=None, entry=False):
+    t = (now or datetime.now(ET)).astimezone(ET)
+    if t.weekday() >= 5:
+        return False
+    m = t.hour * 60 + t.minute
+    return 600 <= m < 900 if entry else 570 <= m < 960      # entries 10:00-15:00, exits 9:30-16:00
+
+
+def fund_price(symbol):
+    df = yf.download(symbol, period="1d", interval="1m", progress=False, auto_adjust=False)
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+    return float(df["Close"].dropna().iloc[-1])
+
+
+def close_fund(st, p, why):
+    """Sell a 2x-fund position. Outside market hours, mark it and sell at the next open."""
+    if not market_open():
+        if p.get("exit_pending") != why:
+            p["exit_pending"] = why
+            log(f"{p['fund']} exit signal ({why}) while the stock market is closed: selling at the next open")
+        return False
+    if LIVE:
+        res = crypto_live.sell_fund(p["fund"], p.get("fund_stop_order_id"), why)
+        if not res.get("ok"):
+            log(f"LIVE exit FAILED on {p['fund']} ({why}): {res.get('error')} - will retry", "Crypto LIVE: exit failed, check app")
+            return False
+        px = float(res.get("avg_price") or fund_price(p["fund"]))
+    else:
+        px = fund_price(p["fund"])
+    proceeds = p["fund_qty"] * px * (1 - FUND_COST)
+    pnl = proceeds - p["cost"]
+    st["cash"] += proceeds
+    st["day"]["realized"] += pnl
+    r = pnl / (p["cost"] * 2 * p["risk"] / p["entry"])
+    st["positions"].remove(p)
+    st["closed"].append(dict(p, exit=px, reason=why, pnl=round(pnl, 2), R=round(r, 2),
+                             closed=datetime.now(timezone.utc).isoformat()))
+    log(f"{'LIVE' if LIVE else 'PAPER'} SELL {p['fund_qty']} {p['fund']} (2x {p['coin']}) @ {px:,.2f} ({why}) | "
+        f"P&L ${pnl:+.2f} ({r:+.2f}R) | {p['strategy']}", f"Crypto {'win' if pnl > 0 else 'loss'}: {p['fund']} ${pnl:+.2f}")
+    return True
 
 
 def log(text, alert_title=None):
@@ -97,7 +151,7 @@ def refresh_playbook():
 def manage(st, data):
     for p in list(st["positions"]):
         d = data.get(p["coin"])
-        if d is None:
+        if d is None or p.get("exit_pending"):
             continue
         bars = d[d.index > pd.Timestamp(p["checked"])]
         bars = bars.iloc[:-1]                                   # completed bars only
@@ -125,6 +179,9 @@ def manage(st, data):
             else:
                 p["stop"] = p.get("live_stop", p["stop"])
                 log(f"LIVE stop move FAILED on {p['coin']}: {res.get('error')}", "Crypto LIVE: check stop")
+        if exit_px is not None and p.get("fund"):
+            close_fund(st, p, why)
+            continue
         if LIVE and exit_px is not None:
             res = crypto_live.sell_all(p["coin"], p["stop_order_id"], why)
             if not res.get("ok"):
@@ -207,6 +264,8 @@ def raise_live_stop(p):
     """Move the real Robinhood stop up only in steps (breakeven, then every +0.5R), so a trailing
     stop doesn't cost a Claude call every hour. Between steps the desk sells itself if price hits
     the tighter stop it tracks (checked every 5 minutes)."""
+    if p.get("fund"):
+        return False                     # the fund keeps its first stop; the desk sells it on the trail
     live = p.get("live_stop", p["stop"])
     return p["stop"] > live and (live < p["entry"] <= p["stop"] or p["stop"] - live >= 0.5 * p["risk"])
 
@@ -256,6 +315,38 @@ def open_new(st, data, rules):
                 continue
             cost = qty * entry * (1 + cl.FEE)
             live = {}
+            fund = FUNDS_2X.get(coin) if leverage_on() and market_open(entry=True) else None
+            if fund:
+                try:
+                    fpx = fund_price(fund)
+                except Exception as e:
+                    log(f"No price for {fund}: {e}; trading the coin instead")
+                    fund = None
+            if fund:
+                shares = int(cost / (fpx * (1 + FUND_COST)))           # whole shares so a stop order is allowed
+                fstop = round(fpx * (1 - 2 * (entry - stop) / entry), 2)
+                if shares < 1:
+                    log(f"{fund} costs ${fpx:,.2f}: under one share with this cash, trading {coin} instead")
+                    fund = None
+            if fund:
+                if LIVE:
+                    res = crypto_live.buy_fund(fund, shares, fstop)
+                    if not res.get("ok") or not res.get("filled_qty"):
+                        log(f"LIVE buy FAILED {fund}: {res.get('error')}", "Crypto LIVE: buy failed")
+                        continue
+                    shares, fpx = int(float(res["filled_qty"])), float(res["avg_price"])
+                    live = dict(fund_stop_order_id=res.get("stop_order_id"), buy_order_id=res.get("buy_order_id"))
+                fcost = shares * fpx * (1 + FUND_COST)
+                st["cash"] -= fcost
+                ex = rule["exit"]
+                target = entry + ex["target"] * risk if ex["target"] else None
+                st["positions"].append(dict(coin=coin, fund=fund, fund_qty=shares, fund_entry=fpx, fund_stop=fstop,
+                                            strategy=name, qty=qty, entry=entry, stop=stop, target=target, risk=risk,
+                                            be=ex["be"], trail=ex.get("trail", 0), high=entry, cost=fcost,
+                                            opened=ts, checked=ts, situation=sit, rule=rule["when"], **live))
+                log(f"{'LIVE' if LIVE else 'PAPER'} BUY {shares} {fund} (2x {coin}) @ {fpx:,.2f} = ${fcost:,.2f} · "
+                    f"stop {fstop:,.2f} · {cl.exit_label(ex)} on {coin} · {name}", f"Crypto buy: {fund} (2x {coin})")
+                break
             if LIVE:
                 res = crypto_live.buy(coin, qty * entry, stop)
                 if not res.get("ok") or not res.get("filled_qty"):
@@ -303,6 +394,9 @@ def live_price(coin):
 def quick_manage(st):
     """Between hourly runs: manage open positions on the live price (target, breakeven, stop, 48h)."""
     for p in list(st["positions"]):
+        if p.get("exit_pending"):
+            close_fund(st, p, p["exit_pending"])
+            continue
         try:
             px = live_price(p["coin"])
         except Exception as e:
@@ -320,7 +414,7 @@ def quick_manage(st):
                 p["high"] = max(p.get("high", p["entry"]), px)      # trail itself moves on hourly closes
             if p["be"] and px >= p["entry"] + p["risk"] and p["stop"] < p["entry"]:
                 p["stop"] = p["entry"]
-                if LIVE:
+                if LIVE and not p.get("fund"):
                     res = crypto_live.move_stop(p["coin"], p["qty"], p["stop_order_id"], p["stop"])
                     if res.get("ok"):
                         p["stop_order_id"], p["live_stop"] = res.get("stop_order_id"), p["stop"]
@@ -330,6 +424,9 @@ def quick_manage(st):
                         log(f"LIVE stop move FAILED on {p['coin']}: {res.get('error')}", "Crypto LIVE: check stop")
                 else:
                     log(f"PAPER stop on {p['coin']} raised to breakeven {p['stop']:,.4f}")
+            continue
+        if p.get("fund"):
+            close_fund(st, p, why)
             continue
         exit_px = p["stop"] if why.endswith("stop") else px
         if LIVE:
