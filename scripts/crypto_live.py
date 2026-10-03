@@ -42,10 +42,17 @@ def run(task, tools=TOOLS):
         return {"ok": False, "error": "bad RESULT json", "raw": m[-1][:400]}
 
 
-def buy(coin, dollars, stop):
+def buy(coin, dollars, stop, ref_price):
+    cap = ref_price * 1.003
     return run(
-        f"Buy ${dollars:.2f} of {coin} with a market order (dollar_amount '{dollars:.2f}', ref_id '{uuid.uuid4()}'). "
-        f"Wait until it is filled (check get_crypto_orders, up to 2 minutes). Then place a SELL stop order "
+        f"Buy about ${dollars:.2f} of {coin} with a LIMIT order, not a market order (Robinhood's market orders fill "
+        f"well above the real price). First call get_crypto_quotes for {coin}. If its ask price is above "
+        f"{cap:.6g} (0.3% over the market price {ref_price:.6g}), place nothing and return ok false with error "
+        f"'spread too wide'. Otherwise place a limit buy at limit price {cap:.6g}, quantity = {dollars:.2f} / {cap:.6g} "
+        f"rounded down to the coin's allowed increment, time_in_force gtc, ref_id '{uuid.uuid4()}'. Wait up to "
+        f"2 minutes for the fill (get_crypto_orders). If it is not filled, cancel it; if it is partly filled, cancel "
+        f"the rest and keep the filled part. If nothing filled, return ok false with error 'not filled'. "
+        f"Then place a SELL stop order "
         f"(type stop_loss, time_in_force gtc) for the exact filled quantity at stop_price {stop:.6g}, ref_id "
         f"'{uuid.uuid4()}'. If the buy filled but the stop order fails, retry the stop once; if it still fails, "
         f"sell the whole filled quantity at market. "

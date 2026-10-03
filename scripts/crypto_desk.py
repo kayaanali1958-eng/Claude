@@ -391,7 +391,7 @@ def open_new(st, data, rules):
                     f"stop {fstop:,.2f} · {cl.exit_label(ex)} on {coin} · {name}", f"Crypto buy: {fund} (2x {coin})")
                 break
             if LIVE:
-                res = crypto_live.buy(coin, qty * entry, stop)
+                res = crypto_live.buy(coin, qty * entry, stop, live_price(coin))
                 if not res.get("ok") or not res.get("filled_qty"):
                     log(f"LIVE buy FAILED {coin}: {res.get('error')}", "Crypto LIVE: buy failed")
                     continue
