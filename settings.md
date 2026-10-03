@@ -59,7 +59,7 @@ Paper start: $100. Live: the book is CRYPTO_LIVE_MAX from .env: a dollar amount 
 - 2x funds: `CRYPTO_LEVERAGE=2` in .env. During US market hours (entries 10:00-15:00 ET) a signal on BTC/ETH/XRP buys whole shares of BITX/ETHU/XXRP (2x daily funds) with a real stop order; exits follow the coin, and an exit while the stock market is closed is sold at the next open (gap risk). Replay 2024-26: about double the profit of coins, but worst drop 63% and worst trade -36%.
 - Swing, not day trading: forcing exits by 3 PM lost money in every replay; the setups need time to run.
 - Live sizing: `CRYPTO_SIZE=all` in .env puts all the book's cash into each trade (so one trade at a time; the loss on a trade is the stop distance, usually 1–4% of the book). Empty = 1% risk.
-- Stops opening trades for the day after a 3% loss; pauses everything after a 10% drop from the book's peak (phone alert).
+- Safety limits scale with CRYPTO_SIZE: 1% risk = daily stop 3%, pause at -25%; 2% = 6% / -35%; above 2% or all-in = one trade at a time, daily stop 15%, pause at -45% (the replay's worst drop was 41%). Phone alert on a pause.
 - Costs: 0.2% per buy and per sell is assumed (Robinhood's spread).
 - Log: `crypto_journal.md`; state: `crypto_state.json`.
 

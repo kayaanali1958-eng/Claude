@@ -44,7 +44,6 @@ COINS = cl.TRADE_COINS
 START = 100.0
 RISK = 0.01
 DAILY_LOSS = 0.03
-MAX_DRAWDOWN = 0.10
 MAX_OPEN = 2
 # CRYPTO_LEVERAGE=2 in .env: during US market hours, a signal on these coins buys the 2x fund instead
 # (whole shares, real stop order). Exits follow the coin's signals; a fund can only be sold while the
@@ -257,10 +256,33 @@ def sync_balance(st, today):
         log(f"Book synced to the account: cash ${cash:.2f} ({'added' if delta > 0 else 'removed'} ${abs(delta):.2f})")
 
 
+def risk_pct():
+    """CRYPTO_SIZE in .env: empty = 1% risk per trade, "5%" = 5% risk, all = all the cash (None)."""
+    if not LIVE:
+        return RISK
+    v = (os.environ.get("CRYPTO_SIZE") or "").strip().lower().rstrip("%")
+    if v == "all":
+        return None
+    try:
+        return min(max(float(v) / 100, 0.005), 0.10)
+    except ValueError:
+        return RISK
+
+
+def limits():
+    """Safety limits that fit the size. Above 2% risk (or all-in) it holds one trade at a time, which
+    made more in the replay; the daily stop allows about 3 losses and the pause sits just past the
+    worst drop the replay saw (41%), so it only stops the desk when something is really wrong."""
+    pct = risk_pct()
+    if pct is None or pct > 0.02:
+        return dict(max_open=1, daily=0.15, drawdown=0.45, gate="all_in")
+    if pct > 0.01:
+        return dict(max_open=MAX_OPEN, daily=0.06, drawdown=0.35, gate="risk_2pct")
+    return dict(max_open=MAX_OPEN, daily=DAILY_LOSS, drawdown=0.25, gate="risk_1pct")
+
+
 def size_mode():
-    """CRYPTO_SIZE in .env: empty = 1% risk per trade, 2% = 2% risk, all = all the cash in each trade."""
-    v = (os.environ.get("CRYPTO_SIZE") or "").strip().lower()
-    return {"all": "all_in", "2%": "risk_2pct", "2": "risk_2pct"}.get(v, "risk_1pct")
+    return limits()["gate"]
 
 
 def replay_passed():
@@ -292,7 +314,8 @@ def open_new(st, data, rules):
         log("CRYPTO_MODE is live but the book has no money: set CRYPTO_LIVE_MAX in .env (a dollar amount or all).",
             "Crypto LIVE not configured")
         return
-    if st["day"]["realized"] <= -DAILY_LOSS * st["start"]:
+    lim = limits()
+    if st["day"]["realized"] <= -lim["daily"] * st["start"]:
         return
     if LIVE and not replay_passed():
         if st.get("gate_logged") != st["day"]["date"]:
@@ -302,7 +325,7 @@ def open_new(st, data, rules):
                 "Crypto LIVE: on hold (strategy failed replay)")
         return
     for coin, d in data.items():
-        if len(st["positions"]) >= MAX_OPEN or any(p["coin"] == coin for p in st["positions"]):
+        if len(st["positions"]) >= lim["max_open"] or any(p["coin"] == coin for p in st["positions"]):
             continue
         i = len(d) - 2                                          # last completed hour
         ts = str(d.index[i])
@@ -317,11 +340,11 @@ def open_new(st, data, rules):
             if not rule:
                 continue
             risk = entry - stop
-            mode = size_mode() if LIVE else "risk_1pct"
+            pct = risk_pct()
+            mode = "all_in" if pct is None else "risk"
             if mode == "all_in":
                 qty = st["cash"] / (entry * (1 + cl.FEE))     # all-in: the whole book's cash, still no leverage
             else:
-                pct = 0.02 if mode == "risk_2pct" else RISK
                 qty = min(pct * eq / risk, st["cash"] / (entry * (1 + cl.FEE)))      # no leverage
             if qty * entry < 1:
                 log(f"Skipped {coin} {name}: position under $1")
@@ -506,9 +529,10 @@ def main():
     prices = {c: float(d.close.iloc[-1]) for c, d in data.items()}
     eq = equity(st, prices)
     st["peak"] = max(st["peak"], eq)
-    if not st["paused"] and eq < st["peak"] * (1 - MAX_DRAWDOWN):
+    dd = limits()["drawdown"]
+    if not st["paused"] and eq < st["peak"] * (1 - dd):
         st["paused"] = True
-        log(f"PAUSED: equity ${eq:.2f} is 10% below peak ${st['peak']:.2f}. Review, then set paused=false.", "Crypto desk paused")
+        log(f"PAUSED: equity ${eq:.2f} is {dd:.0%} below peak ${st['peak']:.2f}. Review, then set paused=false.", "Crypto desk paused")
     st["equity"] = round(eq, 2)
     STATE.write_text(json.dumps(st, indent=2, default=str), encoding="utf-8")
     print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')}  {'LIVE' if LIVE else 'paper'}  equity ${eq:.2f} | cash ${st['cash']:.2f} | open {len(st['positions'])} | rules {len(rules)}" + ("  PAUSED" if st["paused"] else ""))
