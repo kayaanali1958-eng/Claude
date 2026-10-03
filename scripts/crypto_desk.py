@@ -419,6 +419,25 @@ def open_new(st, data, rules):
             break
 
 
+def save_15m(coins):
+    """Keep a growing history of 15-minute candles (Coinbase, no key) in backtests/m15/, so faster
+    entries can be tested properly once there is enough of it. Never used for trading."""
+    import urllib.request
+    out = ROOT / "backtests" / "m15"
+    out.mkdir(parents=True, exist_ok=True)
+    for coin in coins:
+        try:
+            req = urllib.request.Request(f"https://api.exchange.coinbase.com/products/{coin}-USD/candles?granularity=900",
+                                         headers={"User-Agent": "Mozilla/5.0"})
+            rows = json.loads(urllib.request.urlopen(req, timeout=15).read())
+            new = pd.DataFrame(rows, columns=["t", "low", "high", "open", "close", "volume"])
+            f = out / f"{coin}.csv"
+            old = pd.read_csv(f) if f.exists() else new.iloc[:0]
+            pd.concat([old, new]).drop_duplicates("t").sort_values("t").to_csv(f, index=False)
+        except Exception as e:
+            print(f"15m save {coin}: {e}")
+
+
 def live_price(coin):
     """Latest trade price from Coinbase's public ticker (no key needed)."""
     import urllib.request
@@ -532,6 +551,7 @@ def main():
             log(f"Data error {c}: {e}")
     manage(st, data)
     open_new(st, data, rules)
+    save_15m(COINS)
     prices = {c: float(d.close.iloc[-1]) for c, d in data.items()}
     eq = equity(st, prices)
     st["peak"] = max(st["peak"], eq)
