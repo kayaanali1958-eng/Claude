@@ -336,7 +336,8 @@ def open_new(st, data, rules):
                     log(f"No price for {fund}: {e}; trading the coin instead")
                     fund = None
             if fund:
-                shares = int(cost / (fpx * (1 + FUND_COST)))           # whole shares so a stop order is allowed
+                budget = cost if mode == "all_in" else cost / 2       # 2x fund: half the size keeps the same risk
+                shares = int(budget / (fpx * (1 + FUND_COST)))         # whole shares so a stop order is allowed
                 fstop = round(fpx * (1 - 2 * (entry - stop) / entry), 2)
                 if shares < 1:
                     log(f"{fund} costs ${fpx:,.2f}: under one share with this cash, trading {coin} instead")
