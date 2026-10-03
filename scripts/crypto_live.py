@@ -90,11 +90,14 @@ FUND_TOOLS = ["get_accounts", "get_portfolio", "get_equity_quotes", "get_equity_
               "review_equity_order", "place_equity_order", "cancel_equity_order"]
 
 
-def buy_fund(symbol, shares, stop):
+def buy_fund(symbol, shares, stop, ref_price):
+    cap = ref_price * 1.003
     return run(
         f"Stock order, not crypto (ignore the crypto preview rule; use review_equity_order before every "
-        f"place_equity_order instead). Buy {shares} whole shares of {symbol} with a market order during regular "
-        f"hours. Wait until it is filled (check get_equity_orders, up to 2 minutes). Then place a SELL stop order "
+        f"place_equity_order instead). First call get_equity_quotes for {symbol}: if the ask is above {cap:.2f} "
+        f"(0.3% over the market price {ref_price:.2f}), place nothing and return ok false with error 'spread too wide'. "
+        f"Otherwise buy {shares} whole shares of {symbol} with a LIMIT order at {cap:.2f} during regular hours. "
+        f"If it is not filled within 2 minutes, cancel it and return ok false with error 'spread too wide'. Wait until it is filled (check get_equity_orders, up to 2 minutes). Then place a SELL stop order "
         f"(stop loss, good till canceled, regular hours) for the filled shares at stop price {stop:.2f}. If the buy "
         f"filled but the stop order fails, retry once; if it still fails, sell the filled shares at market. "
         f"RESULT keys: ok, filled_qty, avg_price, buy_order_id, stop_order_id.", tools=FUND_TOOLS)

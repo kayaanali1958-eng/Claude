@@ -311,6 +311,118 @@ def raise_live_stop(p):
     return p["stop"] > live and (live < p["entry"] <= p["stop"] or p["stop"] - live >= 0.5 * p["risk"])
 
 
+def enter(st, coin, name, entry, stop, rule, sit, ts, eq):
+    """Size and place one entry. Returns "done", "skip", or "wait" (Robinhood's spread is too wide now)."""
+    risk = entry - stop
+    pct = risk_pct()
+    mode = "all_in" if pct is None else "risk"
+    if mode == "all_in":
+        qty = st["cash"] / (entry * (1 + cl.FEE))     # all-in: the whole book's cash, still no leverage
+    else:
+        qty = min(pct * eq / risk, st["cash"] / (entry * (1 + cl.FEE)))      # no leverage
+    if qty * entry < 1:
+        log(f"Skipped {coin} {name}: position under $1")
+        return "skip"
+    cost = qty * entry * (1 + cl.FEE)
+    live = {}
+    fund = FUNDS_2X.get(coin) if leverage_on() and market_open(entry=True) else None
+    if fund:
+        try:
+            fpx = fund_price(fund)
+        except Exception as e:
+            log(f"No price for {fund}: {e}; trading the coin instead")
+            fund = None
+    if fund:
+        budget = cost if mode == "all_in" else cost / 2       # 2x fund: half the size keeps the same risk
+        shares = int(budget / (fpx * (1 + FUND_COST)))         # whole shares so a stop order is allowed
+        fstop = round(fpx * (1 - 2 * (entry - stop) / entry), 2)
+        if shares < 1:
+            log(f"{fund} costs ${fpx:,.2f}: under one share with this cash, trading {coin} instead")
+            fund = None
+    if fund:
+        if LIVE:
+            res = crypto_live.buy_fund(fund, shares, fstop, fpx)
+            if not res.get("ok") or not res.get("filled_qty"):
+                if "spread too wide" in str(res.get("error")):
+                    return "wait"
+                log(f"LIVE buy FAILED {fund}: {res.get('error')}", "Crypto LIVE: buy failed")
+                return "skip"
+            shares, fpx = int(float(res["filled_qty"])), float(res["avg_price"])
+            live = dict(fund_stop_order_id=res.get("stop_order_id"), buy_order_id=res.get("buy_order_id"))
+        fcost = shares * fpx * (1 + FUND_COST)
+        st["cash"] -= fcost
+        ex = rule["exit"]
+        target = entry + ex["target"] * risk if ex["target"] else None
+        st["positions"].append(dict(coin=coin, fund=fund, fund_qty=shares, fund_entry=fpx, fund_stop=fstop,
+                                    strategy=name, qty=qty, entry=entry, stop=stop, target=target, risk=risk,
+                                    be=ex["be"], trail=ex.get("trail", 0), high=entry, cost=fcost,
+                                    opened=ts, checked=ts, situation=sit, rule=rule["when"], **live))
+        log(f"{'LIVE' if LIVE else 'PAPER'} BUY {shares} {fund} (2x {coin}) @ {fpx:,.2f} = ${fcost:,.2f} · "
+            f"stop {fstop:,.2f} · {cl.exit_label(ex)} on {coin} · {name}", f"Crypto buy: {fund} (2x {coin})")
+        return "done"
+    if (os.environ.get("CRYPTO_FUNDS_ONLY") or "").strip() == "1":
+        return "skip"                  # coins cost ~0.9% per side on Robinhood: trade only the 2x funds
+    if LIVE:
+        res = crypto_live.buy(coin, qty * entry, stop, live_price(coin))
+        if not res.get("ok") or not res.get("filled_qty"):
+            if "spread too wide" in str(res.get("error")):
+                return "wait"
+            quiet = "not filled" in str(res.get("error"))
+            log(f"LIVE buy skipped {coin}: {res.get('error')}", None if quiet else "Crypto LIVE: buy failed")
+            return "skip"
+        qty, entry = float(res["filled_qty"]), float(res["avg_price"])
+        cost = qty * entry * (1 + cl.FEE)
+        risk = entry - stop
+        live = dict(stop_order_id=res.get("stop_order_id"), buy_order_id=res.get("buy_order_id"), live_stop=stop)
+        if risk <= 0:                            # filled at or below the stop: exit right away
+            crypto_live.sell_all(coin, live["stop_order_id"], "filled below stop")
+            log(f"LIVE {coin} filled at {entry} below stop {stop}: exited", "Crypto LIVE: bad fill, exited")
+            return "skip"
+    st["cash"] -= cost
+    ex = rule["exit"]
+    target = entry + ex["target"] * risk if ex["target"] else None
+    st["positions"].append(dict(coin=coin, strategy=name, qty=qty, entry=entry, stop=stop, target=target,
+                                risk=risk, be=ex["be"], trail=ex.get("trail", 0), high=entry,
+                                cost=cost, opened=ts, checked=ts,
+                                situation=sit, rule=rule["when"], **live))
+    w = " & ".join(f"{k}={v}" for k, v in rule["when"].items()) or "any"
+    goal = f"target {target:,.4f}" if target else "no target, stop trails up"
+    log(f"{'LIVE' if LIVE else 'PAPER'} BUY {qty:.6f} {coin} @ {entry:,.4f} · stop {stop:,.4f} · {goal} "
+        f"({cl.exit_label(ex)}) · {name} · situation {w} · "
+        f"rule unseen {rule['test']['avgR']:+.2f}R over {rule['test']['trades']}",
+        f"Crypto buy: {coin}")
+    return "done"
+
+
+WAIT_MIN, WAIT_EVERY = 60, 10          # spread too wide: retry every 10 minutes for up to an hour
+
+
+def retry_waiting(st):
+    """Entries put on hold because Robinhood's spread was too wide: retry while the setup still holds."""
+    for coin, w in list(st.get("waiting", {}).items()):
+        now = time.time()
+        if now > w["until"] or any(p["coin"] == coin for p in st["positions"]) or len(st["positions"]) >= limits()["max_open"]:
+            log(f"{coin}: spread stayed too wide for {WAIT_MIN} minutes, setup dropped")
+            del st["waiting"][coin]
+            continue
+        if now < w["next"]:
+            continue
+        try:
+            px = live_price(coin)
+        except Exception:
+            continue
+        if px <= w["stop"] or px > w["entry"] * 1.01:          # the setup is gone: below the stop or ran away
+            log(f"{coin}: price moved to {px:,.4f} while waiting for a fair spread, setup dropped")
+            del st["waiting"][coin]
+            continue
+        eq = st["cash"] + sum(p["cost"] for p in st["positions"])
+        res = enter(st, coin, w["name"], w["entry"], w["stop"], w["rule"], w["sit"], w["ts"], eq)
+        if res == "wait":
+            w["next"] = now + WAIT_EVERY * 60
+        else:
+            del st["waiting"][coin]
+
+
 def open_new(st, data, rules):
     prices = {c: float(d.close.iloc[-1]) for c, d in data.items()}
     eq = equity(st, prices)
@@ -331,7 +443,8 @@ def open_new(st, data, rules):
                 "Crypto LIVE: on hold (strategy failed replay)")
         return
     for coin, d in data.items():
-        if len(st["positions"]) >= lim["max_open"] or any(p["coin"] == coin for p in st["positions"]):
+        if len(st["positions"]) >= lim["max_open"] or any(p["coin"] == coin for p in st["positions"]) \
+                or coin in st.get("waiting", {}):
             continue
         i = len(d) - 2                                          # last completed hour
         ts = str(d.index[i])
@@ -345,81 +458,16 @@ def open_new(st, data, rules):
             rule = next((r for r in rules if r["strategy"] == name and all(sit.get(k) == v for k, v in r["when"].items())), None)
             if not rule:
                 continue
-            risk = entry - stop
-            pct = risk_pct()
-            mode = "all_in" if pct is None else "risk"
-            if mode == "all_in":
-                qty = st["cash"] / (entry * (1 + cl.FEE))     # all-in: the whole book's cash, still no leverage
-            else:
-                qty = min(pct * eq / risk, st["cash"] / (entry * (1 + cl.FEE)))      # no leverage
-            if qty * entry < 1:
-                log(f"Skipped {coin} {name}: position under $1")
-                continue
-            cost = qty * entry * (1 + cl.FEE)
-            live = {}
-            fund = FUNDS_2X.get(coin) if leverage_on() and market_open(entry=True) else None
-            if fund:
-                try:
-                    fpx = fund_price(fund)
-                except Exception as e:
-                    log(f"No price for {fund}: {e}; trading the coin instead")
-                    fund = None
-            if fund:
-                budget = cost if mode == "all_in" else cost / 2       # 2x fund: half the size keeps the same risk
-                shares = int(budget / (fpx * (1 + FUND_COST)))         # whole shares so a stop order is allowed
-                fstop = round(fpx * (1 - 2 * (entry - stop) / entry), 2)
-                if shares < 1:
-                    log(f"{fund} costs ${fpx:,.2f}: under one share with this cash, trading {coin} instead")
-                    fund = None
-            if fund:
-                if LIVE:
-                    res = crypto_live.buy_fund(fund, shares, fstop)
-                    if not res.get("ok") or not res.get("filled_qty"):
-                        log(f"LIVE buy FAILED {fund}: {res.get('error')}", "Crypto LIVE: buy failed")
-                        continue
-                    shares, fpx = int(float(res["filled_qty"])), float(res["avg_price"])
-                    live = dict(fund_stop_order_id=res.get("stop_order_id"), buy_order_id=res.get("buy_order_id"))
-                fcost = shares * fpx * (1 + FUND_COST)
-                st["cash"] -= fcost
-                ex = rule["exit"]
-                target = entry + ex["target"] * risk if ex["target"] else None
-                st["positions"].append(dict(coin=coin, fund=fund, fund_qty=shares, fund_entry=fpx, fund_stop=fstop,
-                                            strategy=name, qty=qty, entry=entry, stop=stop, target=target, risk=risk,
-                                            be=ex["be"], trail=ex.get("trail", 0), high=entry, cost=fcost,
-                                            opened=ts, checked=ts, situation=sit, rule=rule["when"], **live))
-                log(f"{'LIVE' if LIVE else 'PAPER'} BUY {shares} {fund} (2x {coin}) @ {fpx:,.2f} = ${fcost:,.2f} · "
-                    f"stop {fstop:,.2f} · {cl.exit_label(ex)} on {coin} · {name}", f"Crypto buy: {fund} (2x {coin})")
+            res = enter(st, coin, name, entry, stop, rule, sit, ts, eq)
+            if res == "wait":
+                st.setdefault("waiting", {})[coin] = dict(name=name, entry=entry, stop=stop, rule=rule, sit=sit, ts=ts,
+                                                          until=time.time() + WAIT_MIN * 60,
+                                                          next=time.time() + WAIT_EVERY * 60)
+                log(f"{coin} {name}: Robinhood's spread is too wide right now, waiting for a fair price "
+                    f"(retry every {WAIT_EVERY} min for up to {WAIT_MIN} min)")
                 break
-            if (os.environ.get("CRYPTO_FUNDS_ONLY") or "").strip() == "1":
-                continue                  # coins cost ~0.9% per side on Robinhood: trade only the 2x funds
-            if LIVE:
-                res = crypto_live.buy(coin, qty * entry, stop, live_price(coin))
-                if not res.get("ok") or not res.get("filled_qty"):
-                    quiet = any(k in str(res.get("error")) for k in ("spread too wide", "not filled"))
-                    log(f"LIVE buy skipped {coin}: {res.get('error')}", None if quiet else "Crypto LIVE: buy failed")
-                    continue
-                qty, entry = float(res["filled_qty"]), float(res["avg_price"])
-                cost = qty * entry * (1 + cl.FEE)
-                risk = entry - stop
-                live = dict(stop_order_id=res.get("stop_order_id"), buy_order_id=res.get("buy_order_id"), live_stop=stop)
-                if risk <= 0:                            # filled at or below the stop: exit right away
-                    crypto_live.sell_all(coin, live["stop_order_id"], "filled below stop")
-                    log(f"LIVE {coin} filled at {entry} below stop {stop}: exited", "Crypto LIVE: bad fill, exited")
-                    continue
-            st["cash"] -= cost
-            ex = rule["exit"]
-            target = entry + ex["target"] * risk if ex["target"] else None
-            st["positions"].append(dict(coin=coin, strategy=name, qty=qty, entry=entry, stop=stop, target=target,
-                                        risk=risk, be=ex["be"], trail=ex.get("trail", 0), high=entry,
-                                        cost=cost, opened=ts, checked=ts,
-                                        situation=sit, rule=rule["when"], **live))
-            w = " & ".join(f"{k}={v}" for k, v in rule["when"].items()) or "any"
-            goal = f"target {target:,.4f}" if target else "no target, stop trails up"
-            log(f"{'LIVE' if LIVE else 'PAPER'} BUY {qty:.6f} {coin} @ {entry:,.4f} · stop {stop:,.4f} · {goal} "
-                f"({cl.exit_label(ex)}) · {name} · situation {w} · "
-                f"rule unseen {rule['test']['avgR']:+.2f}R over {rule['test']['trades']}",
-                f"Crypto buy: {coin}")
-            break
+            if res == "done":
+                break
 
 
 def save_15m(coins):
@@ -530,9 +578,11 @@ def main():
                 "Crypto daily recap" if closed else None)
         st["day"] = dict(date=today, realized=0.0)
     hourly = "--full" in sys.argv or "--sync" in sys.argv or datetime.now().minute < 5
-    if not hourly:                                   # 5-minute check: open positions only
+    if not hourly:                                   # 5-minute check: open positions and waiting entries
         if st["positions"]:
             quick_manage(st)
+        if st.get("waiting"):
+            retry_waiting(st)
         STATE.write_text(json.dumps(st, indent=2, default=str), encoding="utf-8")
         if st["positions"]:
             print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')}  {'LIVE' if LIVE else 'paper'}  managed {len(st['positions'])} open position(s)")
@@ -553,6 +603,8 @@ def main():
         except Exception as e:
             log(f"Data error {c}: {e}")
     manage(st, data)
+    if st.get("waiting"):
+        retry_waiting(st)
     open_new(st, data, rules)
     save_15m(COINS)
     prices = {c: float(d.close.iloc[-1]) for c, d in data.items()}
