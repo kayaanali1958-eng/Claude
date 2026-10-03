@@ -61,6 +61,9 @@ Paper start: $100. Live: the book is CRYPTO_LIVE_MAX from .env: a dollar amount 
 - Costs: 0.2% per buy and per sell is assumed (Robinhood's spread).
 - Log: `crypto_journal.md`; state: `crypto_state.json`.
 
+## AI-infrastructure portfolio (paper, run by scripts/ai_portfolio.py once per weekday after the close)
+Holds the 4 strongest AI build-out stocks (chips, memory, chip equipment, networking/servers, power/cooling, data centers, cloud builders) that are above their 200-day average, ranked by 6-month return, rebalanced weekly; sells a holding that drops 15% from its high. Start: AI_PORTFOLIO_START in .env (default $100 paper). Backtest: backtests/ai_portfolio_backtest.md.
+
 ## Evidence gate
 - Paper mode: every strategy may trade, so the desk keeps collecting evidence.
 - **Live mode: only setups that match a rule in `backtests/playbook.json`** (strategy, side, situation and exit). Everything else is signal only. The playbook is rebuilt every Friday after the close.

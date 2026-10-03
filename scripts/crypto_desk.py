@@ -353,6 +353,9 @@ def main():
             print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')}  {'LIVE' if LIVE else 'paper'}  managed {len(st['positions'])} open position(s)")
         return
     sync_balance(st, today)
+    # The AI-infrastructure paper portfolio rides on this timer; it acts once per weekday after 4 PM ET.
+    subprocess.run([sys.executable, str(ROOT / "scripts" / "ai_portfolio.py")], cwd=ROOT,
+                   stdout=open(ROOT / "logs" / "ai_portfolio.log", "a", encoding="utf-8"), stderr=subprocess.STDOUT)
     rules = refresh_playbook()
     btc = fetch("BTC")
     btc_trend = cl.daily_trend_series(btc)

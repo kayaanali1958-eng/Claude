@@ -13,3 +13,5 @@ crypto_journal.md
 backtests/
 crypto_live_state.json
 crypto_live_journal.md
+ai_portfolio_state.json
+ai_portfolio_journal.md
