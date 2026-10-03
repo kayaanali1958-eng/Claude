@@ -390,10 +390,13 @@ def open_new(st, data, rules):
                 log(f"{'LIVE' if LIVE else 'PAPER'} BUY {shares} {fund} (2x {coin}) @ {fpx:,.2f} = ${fcost:,.2f} · "
                     f"stop {fstop:,.2f} · {cl.exit_label(ex)} on {coin} · {name}", f"Crypto buy: {fund} (2x {coin})")
                 break
+            if (os.environ.get("CRYPTO_FUNDS_ONLY") or "").strip() == "1":
+                continue                  # coins cost ~0.9% per side on Robinhood: trade only the 2x funds
             if LIVE:
                 res = crypto_live.buy(coin, qty * entry, stop, live_price(coin))
                 if not res.get("ok") or not res.get("filled_qty"):
-                    log(f"LIVE buy FAILED {coin}: {res.get('error')}", "Crypto LIVE: buy failed")
+                    quiet = any(k in str(res.get("error")) for k in ("spread too wide", "not filled"))
+                    log(f"LIVE buy skipped {coin}: {res.get('error')}", None if quiet else "Crypto LIVE: buy failed")
                     continue
                 qty, entry = float(res["filled_qty"]), float(res["avg_price"])
                 cost = qty * entry * (1 + cl.FEE)
