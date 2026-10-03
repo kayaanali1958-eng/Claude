@@ -144,6 +144,28 @@ def manage(st, data):
                 f"{p['strategy']}", f"Crypto {'win' if pnl > 0 else 'loss'}: {p['coin']} ${pnl:+.2f}")
 
 
+GOAL = 1000
+
+
+def milestones(st, total):
+    """The plan: grow the account to $1,000 here, then split it into long-term funds (ai_portfolio.py)."""
+    try:
+        total = float(total)
+    except (TypeError, ValueError):
+        return
+    st["account_total"] = round(total, 2)
+    hit = st.setdefault("milestones_hit", [])
+    for m in (100, 250, 500, GOAL):
+        if total >= m and m not in hit:
+            hit.append(m)
+            if m == GOAL:
+                log(f"GOAL: the account is worth ${total:,.2f}. Phase 2: time to split it into long-term funds "
+                    "(see ai_portfolio_journal.md for the plan it has been practising).", "Account hit $1,000!")
+            else:
+                log(f"Milestone: the account is worth ${total:,.2f} ({total / GOAL:.0%} of the ${GOAL:,} goal).",
+                    f"Account passed ${m}")
+
+
 def sync_balance(st, today):
     """CRYPTO_LIVE_MAX=all: once a day, set the book's cash to the account's crypto cash. A deposit or
     withdrawal moves start and peak by the same amount, so it never counts as profit, loss or drawdown."""
@@ -156,6 +178,7 @@ def sync_balance(st, today):
         log(f"Balance check failed: {res.get('error') or res}", "Crypto LIVE: balance check failed")
         return
     st["balance_date"] = today
+    milestones(st, res.get("total"))
     delta = round(cash - st["cash"], 2)
     if abs(delta) >= 0.01:
         st["cash"] = cash

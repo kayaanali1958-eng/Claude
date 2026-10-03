@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""AI-infrastructure portfolio manager (paper): holds the strongest AI build-out stocks, drops the weak.
+"""Long-term portfolio manager (paper): the money split into funds, with an AI-infrastructure slice.
 
-The theme: everything AI needs - chips, memory, chip equipment, networking, servers, power, cooling,
-data centers and the cloud companies building them. The rules (no Claude usage):
-  - Each week (first run of a new week), rank the universe by 6-month return. A stock is eligible
-    only if it is above its 200-day average (it is actually going up). Hold the top HOLD names in
-    equal weights; with fewer eligible, the rest stays in cash.
-  - Every day, sell a holding that falls TRAIL below its highest close since it was bought.
+Phase 2 of the plan (from $1,000; until then the crypto desk grows the account). The split:
+  - FUNDS: S&P 500 (VOO) 35%, Nasdaq-100 (QQQM) 20%, chip makers (SMH) 15%: always held,
+    brought back to their weights each week when they drift.
+  - AI slice, 30%: everything AI needs - chips, memory, chip equipment, networking, servers,
+    power, cooling, data centers, cloud builders. Each week, rank by 6-month return; a stock is
+    eligible only if it is above its 200-day average (actually going up). Hold the top HOLD names;
+    with fewer eligible, that part stays in cash. Every day, sell an AI stock that falls TRAIL below
+    its highest close since it was bought (funds are never trail-sold: they are the long-term core).
   - 0.1% cost per trade. Fractional shares. Phone alert on every buy and sell.
 
 Usage:  python scripts/ai_portfolio.py              (daily run; acts once per weekday after 4 PM ET)
@@ -39,6 +41,22 @@ UNIVERSE = {
 }
 TICKERS = [t for group in UNIVERSE.values() for t in group]
 HOLD, LOOKBACK, TREND, TRAIL, COST = 4, 126, 200, 0.15, 0.001
+FUNDS = {"VOO": ("S&P 500", 0.35), "QQQM": ("Nasdaq-100", 0.20), "SMH": ("chip makers", 0.15)}
+AI_SLICE = 1 - sum(w for _, w in FUNDS.values())
+
+
+def targets(close, i):
+    """{ticker: weight} for day i: the funds plus the AI picks."""
+    want = {t: w for t, (_, w) in FUNDS.items()}
+    for t in picks(close[TICKERS], i):
+        want[t] = AI_SLICE / HOLD
+    return want
+
+
+def label(t):
+    if t in FUNDS:
+        return f"{FUNDS[t][0]} fund"
+    return next(g for g, ts in UNIVERSE.items() if t in ts)
 
 
 def download(tickers, period):
@@ -58,13 +76,12 @@ def picks(close, i):
 
 
 def backtest():
-    close = download(TICKERS + ["SPY", "SMH"], "10y")
+    close = download(TICKERS + list(FUNDS) + ["SPY"], "10y")
     bench = close[["SPY", "SMH"]]
-    close = close[TICKERS]
     eq, cash, hold, high, week, curve = 1.0, 1.0, {}, {}, None, []
     for i in range(TREND, len(close)):
         px = close.iloc[i]
-        for t in list(hold):                                   # daily trailing exit
+        for t in [t for t in hold if t not in FUNDS]:          # daily trailing exit (AI stocks)
             high[t] = max(high[t], px[t])
             if px[t] < high[t] * (1 - TRAIL):
                 cash += hold.pop(t) * px[t] * (1 - COST)
@@ -73,13 +90,17 @@ def backtest():
         if wk != week:                                         # weekly rebalance
             week = wk
             value = cash + sum(q * px[t] for t, q in hold.items())
-            want = picks(close, i)
+            want = {t: w for t, w in targets(close, i).items() if not np.isnan(px[t])}
             for t in list(hold):
                 if t not in want:
                     cash += hold.pop(t) * px[t] * (1 - COST)
-                    del high[t]
-            per = value / HOLD
-            for t in want:
+                    high.pop(t, None)
+                elif hold[t] * px[t] > value * want[t] * 1.25:  # trim a big overweight
+                    sell = hold[t] - value * want[t] / px[t]
+                    hold[t] -= sell
+                    cash += sell * px[t] * (1 - COST)
+            for t, w in want.items():
+                per = value * w
                 have = hold.get(t, 0) * px[t]
                 if have < per * 0.8:                           # top up only when clearly underweight
                     buy = min(per - have, cash)
@@ -89,18 +110,19 @@ def backtest():
                         cash -= buy
         curve.append((close.index[i], cash + sum(q * px[t] for t, q in hold.items())))
     s = pd.Series(dict(curve))
-    out = ["# AI-infrastructure portfolio backtest", "",
-           f"Rules: top {HOLD} by 6-month return among stocks above their 200-day average, weekly; "
-           f"sell on a {TRAIL:.0%} drop from the high; {COST:.1%} cost per trade.", "",
+    out = ["# Long-term portfolio backtest (funds + AI slice)", "",
+           "Split: " + ", ".join(f"{t} {w:.0%}" for t, (_, w) in FUNDS.items()) +
+           f", AI slice {AI_SLICE:.0%} (top {HOLD} AI stocks by 6-month return above their 200-day average, "
+           f"weekly; sold on a {TRAIL:.0%} drop from the high); {COST:.1%} cost per trade.", "",
            "| | total | per year | worst drop |", "|---|---|---|---|"]
-    for name, series in [("AI portfolio", s), ("SPY (S&P 500)", bench.SPY.reindex(s.index)),
+    for name, series in [("Funds + AI portfolio", s), ("SPY (S&P 500)", bench.SPY.reindex(s.index)),
                          ("SMH (chip ETF)", bench.SMH.reindex(s.index))]:
         series = series / series.iloc[0]
         years = (series.index[-1] - series.index[0]).days / 365.25
         dd = (1 - series / series.cummax()).max()
         out.append(f"| {name} | {series.iloc[-1] - 1:+.0%} | {series.iloc[-1] ** (1 / years) - 1:+.0%} | -{dd:.0%} |")
     out += ["", f"From {s.index[0]:%Y-%m-%d} to {s.index[-1]:%Y-%m-%d}.",
-            "Caution: this list was picked today, knowing AI stocks did well; real results will be lower."]
+            "Caution: the AI list was picked today, knowing AI stocks did well; real results will be lower."]
     text = "\n".join(out)
     (ROOT / "backtests").mkdir(exist_ok=True)
     (ROOT / "backtests" / "ai_portfolio_backtest.md").write_text(text + "\n", encoding="utf-8")
@@ -111,7 +133,7 @@ def log(text, alert=None):
     stamp = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d %H:%M ET")
     with JOURNAL.open("a", encoding="utf-8") as f:
         if JOURNAL.stat().st_size == 0:
-            f.write("# AI Portfolio Journal (paper)\n\n")
+            f.write("# Long-term Portfolio Journal (paper)\n\n")
         f.write(f"- {stamp} · {text}\n")
     print(stamp, text)
     if alert:
@@ -125,14 +147,14 @@ def daily():
     if STATE.exists():
         st = json.loads(STATE.read_text(encoding="utf-8"))
     else:
-        start = float(os.environ.get("AI_PORTFOLIO_START") or 100)
+        start = float(os.environ.get("AI_PORTFOLIO_START") or 1000)
         st = dict(start=start, cash=start, holdings={}, last_run="", week="")
     if "--now" not in sys.argv and (now.weekday() >= 5 or now.hour < 16 or st["last_run"] == today):
         return                                                  # once per weekday, after the close
-    close = download(TICKERS, "2y")
+    close = download(TICKERS + list(FUNDS), "2y")
     i = len(close) - 1
     px = close.iloc[i]
-    for t in list(st["holdings"]):
+    for t in [t for t in st["holdings"] if t not in FUNDS]:
         h = st["holdings"][t]
         h["high"] = max(h["high"], float(px[t]))
         if px[t] < h["high"] * (1 - TRAIL):
@@ -144,15 +166,21 @@ def daily():
     if week != st["week"]:
         st["week"] = week
         value = st["cash"] + sum(h["qty"] * float(px[t]) for t, h in st["holdings"].items())
-        want = picks(close, i)
+        want = targets(close, i)
         for t in list(st["holdings"]):
+            h = st["holdings"][t]
             if t not in want:
-                h = st["holdings"].pop(t)
+                st["holdings"].pop(t)
                 st["cash"] += h["qty"] * float(px[t]) * (1 - COST)
                 log(f"SELL {t} @ {px[t]:,.2f}: no longer in the top {HOLD} going up "
                     f"(P&L {px[t] / h['entry'] - 1:+.1%})", f"AI portfolio: sold {t}")
-        per = value / HOLD
-        for t in want:
+            elif h["qty"] * float(px[t]) > value * want[t] * 1.25:
+                sell = h["qty"] - value * want[t] / float(px[t])
+                h["qty"] -= sell
+                st["cash"] += sell * float(px[t]) * (1 - COST)
+                log(f"TRIM {t} by ${sell * float(px[t]):,.2f} back to {want[t]:.0%} of the portfolio")
+        for t, w in want.items():
+            per = value * w
             h = st["holdings"].get(t)
             have = h["qty"] * float(px[t]) if h else 0
             buy = min(per - have, st["cash"])
@@ -164,17 +192,16 @@ def daily():
                 else:
                     st["holdings"][t] = dict(qty=qty, entry=float(px[t]), high=float(px[t]), bought=today)
                 st["cash"] -= buy
-                mom = px[t] / close[t].iloc[i - LOOKBACK] - 1
-                group = next(g for g, ts in UNIVERSE.items() if t in ts)
-                log(f"BUY ${buy:,.2f} of {t} ({group}) @ {px[t]:,.2f}: up {mom:+.0%} in 6 months, above its 200-day average",
-                    f"AI portfolio: bought {t}")
-        if not want:
-            log("No AI stock is in an uptrend: holding cash this week.")
+                why = (f"target {w:.0%}" if t in FUNDS else
+                       f"up {px[t] / close[t].iloc[i - LOOKBACK] - 1:+.0%} in 6 months, above its 200-day average")
+                log(f"BUY ${buy:,.2f} of {t} ({label(t)}) @ {px[t]:,.2f}: {why}", f"Portfolio: bought {t}")
+        if not any(t not in FUNDS for t in want):
+            log("No AI stock is in an uptrend: the AI slice stays in cash this week.")
     value = st["cash"] + sum(h["qty"] * float(px[t]) for t, h in st["holdings"].items())
     st["last_run"], st["value"] = today, round(value, 2)
     STATE.write_text(json.dumps(st, indent=2), encoding="utf-8")
     names = ", ".join(st["holdings"]) or "cash only"
-    print(f"{today}  AI portfolio (paper)  value ${value:,.2f} ({value / st['start'] - 1:+.1%}) | {names}")
+    print(f"{today}  Long-term portfolio (paper)  value ${value:,.2f} ({value / st['start'] - 1:+.1%}) | {names}")
 
 
 if __name__ == "__main__":

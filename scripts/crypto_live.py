@@ -72,5 +72,7 @@ def sell_all(coin, stop_order_id, reason):
 def balance():
     """The account's cash available for crypto, read only (no order tools)."""
     return run("Report how much of the account's own cash can be spent on crypto right now: settled cash only, "
-               "never margin or borrowed buying power (no leverage). Do not place, preview or cancel anything. RESULT keys: ok, cash (a number in dollars).",
-               tools=["get_accounts", "get_portfolio"])
+               "never margin or borrowed buying power (no leverage), and the account's total value (cash plus every stock, "
+               "fund and crypto position). Do not place, preview or cancel anything. "
+               "RESULT keys: ok, cash (a number in dollars), total (a number in dollars).",
+               tools=["get_accounts", "get_portfolio", "get_crypto_positions"])

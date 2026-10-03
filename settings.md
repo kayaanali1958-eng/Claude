@@ -61,8 +61,10 @@ Paper start: $100. Live: the book is CRYPTO_LIVE_MAX from .env: a dollar amount 
 - Costs: 0.2% per buy and per sell is assumed (Robinhood's spread).
 - Log: `crypto_journal.md`; state: `crypto_state.json`.
 
-## AI-infrastructure portfolio (paper, run by scripts/ai_portfolio.py once per weekday after the close)
-Holds the 4 strongest AI build-out stocks (chips, memory, chip equipment, networking/servers, power/cooling, data centers, cloud builders) that are above their 200-day average, ranked by 6-month return, rebalanced weekly; sells a holding that drops 15% from its high. Start: AI_PORTFOLIO_START in .env (default $100 paper). Backtest: backtests/ai_portfolio_backtest.md.
+## The plan: $1,000, then long-term funds
+- **Phase 1 (until the Agentic account is worth $1,000):** the crypto desk grows the cash. It checks the whole account value once a day and alerts at $100, $250, $500 and $1,000.
+- **Phase 2 (from $1,000):** split into long-term funds, run by scripts/ai_portfolio.py: S&P 500 (VOO) 35%, Nasdaq-100 (QQQM) 20%, chip makers (SMH) 15%, and an AI slice of 30%: the 4 strongest AI build-out stocks (chips, memory, chip equipment, networking/servers, power/cooling, data centers, cloud builders) above their 200-day average, ranked by 6-month return, weekly; an AI stock is sold on a 15% drop from its high. Funds are rebalanced weekly when they drift.
+- Until the switch it runs as paper (AI_PORTFOLIO_START in .env, default $1,000) so the plan is already tested. Backtest: backtests/ai_portfolio_backtest.md.
 
 ## Evidence gate
 - Paper mode: every strategy may trade, so the desk keeps collecting evidence.
