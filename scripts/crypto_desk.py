@@ -237,9 +237,13 @@ def milestones(st, total):
 
 
 def sync_balance(st, today):
-    """CRYPTO_LIVE_MAX=all: once a day, set the book's cash to the account's crypto cash. A deposit or
-    withdrawal moves start and peak by the same amount, so it never counts as profit, loss or drawdown."""
-    if not LIVE or (os.environ.get("CRYPTO_LIVE_MAX") or "").strip().lower() != "all" or st.get("balance_date") == today:
+    """CRYPTO_LIVE_MAX=all: every 4 hours (or now with --sync), set the book's cash to the account's crypto
+    cash. A deposit or withdrawal moves start and peak by the same amount, so it never counts as profit,
+    loss or drawdown."""
+    if not LIVE or (os.environ.get("CRYPTO_LIVE_MAX") or "").strip().lower() != "all":
+        return
+    last = st.get("balance_checked")
+    if "--sync" not in sys.argv and last and time.time() - last < 4 * 3600:
         return
     res = crypto_live.balance()
     try:
@@ -247,14 +251,15 @@ def sync_balance(st, today):
     except (TypeError, ValueError):
         log(f"Balance check failed: {res.get('error') or res}", "Crypto LIVE: balance check failed")
         return
-    st["balance_date"] = today
+    st["balance_date"], st["balance_checked"] = today, time.time()
     milestones(st, res.get("total"))
     delta = round(cash - st["cash"], 2)
     if abs(delta) >= 0.01:
         st["cash"] = cash
         st["start"] = round(st["start"] + delta, 2)
         st["peak"] = round(st["peak"] + delta, 2)
-        log(f"Book synced to the account: cash ${cash:.2f} ({'added' if delta > 0 else 'removed'} ${abs(delta):.2f})")
+        log(f"Book synced to the account: cash ${cash:.2f} ({'added' if delta > 0 else 'removed'} ${abs(delta):.2f})",
+            "Crypto desk: new money detected" if delta >= 5 else None)
 
 
 def risk_pct():
@@ -502,7 +507,7 @@ def main():
             log(f"Day {st['day']['date']}: {len(closed)} trades, realized ${st['day']['realized']:+.2f}, cash ${st['cash']:.2f}",
                 "Crypto daily recap" if closed else None)
         st["day"] = dict(date=today, realized=0.0)
-    hourly = "--full" in sys.argv or datetime.now().minute < 5
+    hourly = "--full" in sys.argv or "--sync" in sys.argv or datetime.now().minute < 5
     if not hourly:                                   # 5-minute check: open positions only
         if st["positions"]:
             quick_manage(st)
