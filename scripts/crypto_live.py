@@ -81,8 +81,11 @@ def balance():
     return run("Report how much of the account's own cash can be spent on crypto right now, including deposits "
                "Robinhood already lets the account use, but never margin or borrowed buying power (no leverage), and the account's total value (cash plus every stock, "
                "fund and crypto position). Do not place, preview or cancel anything. "
-               "RESULT keys: ok, cash (a number in dollars), total (a number in dollars).",
-               tools=["get_accounts", "get_portfolio", "get_crypto_positions"])
+               "Also list what the account holds: every crypto position (coin code and quantity) and every stock or fund "
+               "position (symbol and number of shares). "
+               "RESULT keys: ok, cash (a number in dollars), total (a number in dollars), "
+               "holdings (an object like {\"LTC\": 9.71, \"BITX\": 12}).",
+               tools=["get_accounts", "get_portfolio", "get_crypto_positions", "get_equity_positions"])
 
 
 # 2x crypto funds (stocks on Robinhood, market hours only). Whole shares, so a real stop order is allowed.

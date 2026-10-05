@@ -253,6 +253,22 @@ def sync_balance(st, today):
         return
     st["balance_date"], st["balance_checked"] = today, time.time()
     milestones(st, res.get("total"))
+    held = res.get("holdings")
+    if isinstance(held, dict):                       # a position sold by hand in the app: forget it here too
+        for p in list(st["positions"]):
+            sym = p.get("fund") or p["coin"]
+            try:
+                have = float(held.get(sym, 0) or 0)
+            except (TypeError, ValueError):
+                continue
+            need = p["fund_qty"] if p.get("fund") else p["qty"]
+            if have < need * 0.5:
+                st["positions"].remove(p)
+                st["cash"] += p["cost"]          # its money is back in cash: not a deposit, not a loss
+                st["closed"].append(dict(p, exit=None, reason="closed outside the desk", pnl=None, R=None,
+                                         closed=datetime.now(timezone.utc).isoformat()))
+                log(f"{sym} is no longer in the account (sold in the app?): removed from the desk's open trades",
+                    f"Crypto desk: {sym} closed outside the desk")
     delta = round(cash - st["cash"], 2)
     if abs(delta) >= 0.01:
         st["cash"] = cash
