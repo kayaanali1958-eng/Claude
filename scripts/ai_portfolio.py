@@ -4,10 +4,10 @@
 Phase 2 of the plan (from $1,000; until then the crypto desk grows the account). The split:
   - FUNDS: S&P 500 (VOO) 35%, Nasdaq-100 (QQQM) 20%, chip makers (SMH) 15%: always held,
     brought back to their weights each week when they drift.
-  - Growth slice, 30%: everything AI needs (chips, memory, chip equipment, networking, servers,
+  - Growth slice, 30%: the strongest of about 120 big US stocks: everything AI needs (chips, memory, chip equipment, networking, servers,
     power, cooling, data centers, cloud builders) plus government winners (defense, space,
-    nuclear, gov tech). Companies whose new federal contract money jumped (USAspending.gov)
-    rank higher. Each week, rank by 6-month return; a stock is
+    nuclear, gov tech) and every other market leader. Companies whose new federal contract money
+    jumped (USAspending.gov) rank higher. Each week, rank by 6-month return; a stock is
     eligible only if it is above its 200-day average (actually going up). Hold the top HOLD names;
     with fewer eligible, that part stays in cash. Every day, sell an AI stock that falls TRAIL below
     its highest close since it was bought (funds are never trail-sold: they are the long-term core).
@@ -44,6 +44,13 @@ UNIVERSE = {
     "space": ["RKLB"],
     "nuclear": ["CCJ", "BWXT"],
 }
+# Every other big, liquid US leader: picking the strongest from a wider list did better in the backtest
+# (+35%/yr, worst drop -29%, vs +26%/yr and -32% with the AI and government list alone).
+_LEADERS = ("AAPL TSLA BRK-B JPM LLY V UNH XOM MA COST HD PG JNJ ABBV NFLX CRM BAC CVX KO MRK PEP TMO ADBE WMT "
+            "LIN ACN MCD CSCO ABT DHR WFC DIS INTU QCOM TXN VZ CAT AMGN IBM GE PM NOW ISRG UBER SPGI GS AMZN "
+            "BKNG HON LOW UNP NEE PFE AXP MS PLD SYK BLK TJX VRTX ADP BSX MDT PANW SCHW C DE GILD KLAC ADI SBUX "
+            "CB BX CRWD FTNT SNPS CDNS APP HOOD COIN MSTR SHOP").split()
+UNIVERSE["other market leaders"] = [t for t in _LEADERS if all(t not in g for g in UNIVERSE.values())]
 # Government contracts (USAspending.gov, the official record of federal awards): companies whose new
 # contract money jumped get a ranking bonus. Name = how the company appears as a federal recipient.
 GOV_NAMES = {"LMT": "LOCKHEED MARTIN", "RTX": "RAYTHEON", "NOC": "NORTHROP GRUMMAN", "GD": "GENERAL DYNAMICS",
@@ -166,7 +173,7 @@ def backtest():
            f", AI slice {AI_SLICE:.0%} (top {HOLD} AI stocks by 6-month return above their 200-day average, "
            f"weekly; sold on a {TRAIL:.0%} drop from the high); {COST:.1%} cost per trade.", "",
            "| | total | per year | worst drop |", "|---|---|---|---|"]
-    for name, series in [("Funds + AI portfolio", s), ("SPY (S&P 500)", bench.SPY.reindex(s.index)),
+    for name, series in [("Funds + growth portfolio", s), ("SPY (S&P 500)", bench.SPY.reindex(s.index)),
                          ("SMH (chip ETF)", bench.SMH.reindex(s.index))]:
         series = series / series.iloc[0]
         years = (series.index[-1] - series.index[0]).days / 365.25
