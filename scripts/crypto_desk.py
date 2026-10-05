@@ -656,6 +656,9 @@ def main():
     # The AI-infrastructure paper portfolio rides on this timer; it acts once per weekday after 4 PM ET.
     subprocess.run([sys.executable, str(ROOT / "scripts" / "ai_portfolio.py")], cwd=ROOT,
                    stdout=open(ROOT / "logs" / "ai_portfolio.log", "a", encoding="utf-8"), stderr=subprocess.STDOUT)
+    # Futures practice account (paper only, for the plan after $2,000), also hourly on this timer.
+    subprocess.run([sys.executable, str(ROOT / "scripts" / "futures_paper.py")], cwd=ROOT,
+                   stdout=open(ROOT / "logs" / "futures_paper.log", "a", encoding="utf-8"), stderr=subprocess.STDOUT)
     rules = refresh_playbook()
     btc = fetch("BTC")
     btc_trend = cl.daily_trend_series(btc)
