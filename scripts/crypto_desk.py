@@ -110,6 +110,7 @@ def close_fund(st, p, why):
     st["day"]["realized"] += pnl
     r = pnl / (p["cost"] * p.get("lev", 2) * p["risk"] / p["entry"])
     st["positions"].remove(p)
+    st["sync_now"] = True
     st["closed"].append(dict(p, exit=px, reason=why, pnl=round(pnl, 2), R=round(r, 2),
                              closed=datetime.now(timezone.utc).isoformat()))
     log(f"{'LIVE' if LIVE else 'PAPER'} SELL {p['fund_qty']} {p['fund']} ({p.get('lev', 2)}x {p['coin']}) @ {px:,.2f} ({why}) | "
@@ -241,6 +242,7 @@ def manage(st, data):
             st["day"]["realized"] += pnl
             r = pnl / (p["qty"] * p["risk"])
             st["positions"].remove(p)
+            st["sync_now"] = True
             st["closed"].append(dict(p, exit=exit_px, reason=why, pnl=round(pnl, 2), R=round(r, 2), closed=p["checked"]))
             log(f"{'LIVE' if LIVE else 'PAPER'} SELL {p['qty']:.6f} {p['coin']} @ {exit_px:,.4f} ({why}) · P&L ${pnl:+.2f} ({r:+.2f}R) · "
                 f"{p['strategy']}", f"Crypto {'win' if pnl > 0 else 'loss'}: {p['coin']} ${pnl:+.2f}")
@@ -269,14 +271,15 @@ def milestones(st, total):
                     f"Account passed ${m}")
 
 
-def sync_balance(st, today):
-    """CRYPTO_LIVE_MAX=all: every 4 hours (or now with --sync), set the book's cash to the account's crypto
+def sync_balance(st, today, force=False):
+    """CRYPTO_LIVE_MAX=all: every 4 hours, right before every buy and right after every sell (or now with
+    --sync), set the book's cash to the account's crypto
     cash. A deposit or withdrawal moves start and peak by the same amount, so it never counts as profit,
     loss or drawdown."""
     if not LIVE or (os.environ.get("CRYPTO_LIVE_MAX") or "").strip().lower() != "all":
         return
     last = st.get("balance_checked")
-    if "--sync" not in sys.argv and last and time.time() - last < 4 * 3600:
+    if not force and "--sync" not in sys.argv and last and time.time() - last < 4 * 3600:
         return
     res = crypto_live.balance()
     try:
@@ -362,6 +365,9 @@ def raise_live_stop(p):
 
 def enter(st, coin, name, entry, stop, rule, sit, ts, eq):
     """Size and place one entry. Returns "done", "skip", or "wait" (Robinhood's spread is too wide now)."""
+    if LIVE and time.time() - st.get("balance_checked", 0) > 300:       # fresh balance before every buy
+        sync_balance(st, datetime.now(timezone.utc).date().isoformat(), force=True)
+        eq = st["cash"] + sum(p["cost"] for p in st["positions"])
     risk = entry - stop
     pct = risk_pct()
     mode = "all_in" if pct is None else "risk"
@@ -619,6 +625,7 @@ def quick_manage(st):
         st["day"]["realized"] += pnl
         r = pnl / (p["qty"] * p["risk"])
         st["positions"].remove(p)
+        st["sync_now"] = True
         now = datetime.now(timezone.utc).isoformat()
         st["closed"].append(dict(p, exit=exit_px, reason=why, pnl=round(pnl, 2), R=round(r, 2), closed=now))
         log(f"{'LIVE' if LIVE else 'PAPER'} SELL {p['qty']:.6f} {p['coin']} @ {exit_px:,.4f} ({why}) | P&L ${pnl:+.2f} ({r:+.2f}R) | {p['strategy']}",
@@ -648,6 +655,8 @@ def main():
             quick_manage(st)
         if st.get("waiting"):
             retry_waiting(st)
+        if st.pop("sync_now", False):                # fresh balance right after a sell
+            sync_balance(st, today, force=True)
         STATE.write_text(json.dumps(st, indent=2, default=str), encoding="utf-8")
         if st["positions"]:
             print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')}  {'LIVE' if LIVE else 'paper'}  managed {len(st['positions'])} open position(s)")
@@ -683,6 +692,8 @@ def main():
         except Exception as e:
             log(f"Stock data error: {e}")
     manage(st, data)
+    if st.pop("sync_now", False):                    # fresh balance right after a sell
+        sync_balance(st, today, force=True)
     if st.get("waiting"):
         retry_waiting(st)
     open_new(st, data, rules, stock_rules)
