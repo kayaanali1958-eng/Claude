@@ -84,7 +84,7 @@ def prepare(df, btc_daily_trend=None):
     tp = (h + l + c) / 3
     df["vwap"] = (tp * v).groupby(day).cumsum() / v.groupby(day).cumsum()
     # prior UTC day high/low (liquidity resting above/below)
-    dd = df.resample("1D").agg({"high": "max", "low": "min"})
+    dd = df.resample("1D").agg({"high": "max", "low": "min"}).dropna()      # trading days only (stocks skip weekends)
     df["pdh"] = day.map(dd.high.shift(1))
     df["pdl"] = day.map(dd.low.shift(1))
     # equal lows: two swing lows within 0.1% of each other in the last 48 hours (stops cluster below)
@@ -104,7 +104,7 @@ def prepare(df, btc_daily_trend=None):
     df["asia_hi"] = day.map(asia.high.groupby(asia.index.floor("D")).max())
     df["asia_lo"] = day.map(asia.low.groupby(asia.index.floor("D")).min())
     # daily trend, known at the start of each day (yesterday's values)
-    d = df.resample("1D").agg({"close": "last"})
+    d = df.resample("1D").agg({"close": "last"}).dropna()
     d["s20"], d["s50"] = d.close.rolling(20).mean(), d.close.rolling(50).mean()
     tr_d = np.where((d.close > d.s20) & (d.s20 > d.s50), "up", np.where((d.close < d.s20) & (d.s20 < d.s50), "down", "flat"))
     d["trend"] = pd.Series(tr_d, index=d.index).shift(1)
