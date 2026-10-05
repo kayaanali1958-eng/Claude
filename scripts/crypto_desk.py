@@ -48,7 +48,11 @@ MAX_OPEN = 2
 # CRYPTO_LEVERAGE=2 in .env: during US market hours, a signal on these coins buys the 2x fund instead
 # (whole shares, real stop order). Exits follow the coin's signals; a fund can only be sold while the
 # stock market is open, so an exit at night or on a weekend is carried out at the next open.
-FUNDS_2X = {"BTC": "BITX", "ETH": "ETHU", "XRP": "XXRP"}
+# Leveraged funds per signal: 2x crypto funds, and 3x stock funds for the SPY / QQQ / chip (SMH) signals.
+LEV_FUNDS = {"BTC": ("BITX", 2), "ETH": ("ETHU", 2), "XRP": ("XXRP", 2),
+             "SPY": ("UPRO", 3), "QQQ": ("TQQQ", 3), "SMH": ("SOXL", 3)}
+STOCKS = cl.STOCK_SIGNALS
+STOCK_PLAYBOOK = ROOT / "backtests" / "stock_playbook.json"
 FUND_COST = 0.001
 ET = ZoneInfo("America/New_York")
 
@@ -104,11 +108,11 @@ def close_fund(st, p, why):
     pnl = proceeds - p["cost"]
     st["cash"] += proceeds
     st["day"]["realized"] += pnl
-    r = pnl / (p["cost"] * 2 * p["risk"] / p["entry"])
+    r = pnl / (p["cost"] * p.get("lev", 2) * p["risk"] / p["entry"])
     st["positions"].remove(p)
     st["closed"].append(dict(p, exit=px, reason=why, pnl=round(pnl, 2), R=round(r, 2),
                              closed=datetime.now(timezone.utc).isoformat()))
-    log(f"{'LIVE' if LIVE else 'PAPER'} SELL {p['fund_qty']} {p['fund']} (2x {p['coin']}) @ {px:,.2f} ({why}) | "
+    log(f"{'LIVE' if LIVE else 'PAPER'} SELL {p['fund_qty']} {p['fund']} ({p.get('lev', 2)}x {p['coin']}) @ {px:,.2f} ({why}) | "
         f"P&L ${pnl:+.2f} ({r:+.2f}R) | {p['strategy']}", f"Crypto {'win' if pnl > 0 else 'loss'}: {p['fund']} ${pnl:+.2f}")
     return True
 
@@ -136,7 +140,12 @@ def load_state():
 
 
 def equity(st, prices):
-    return st["cash"] + sum(p["qty"] * prices.get(p["coin"], p["entry"]) for p in st["positions"])
+    def value(p):
+        px = prices.get(p["coin"], p["entry"])
+        if p.get("fund"):                                   # a leveraged fund moves lev x the signal's move
+            return p["fund_qty"] * p["fund_entry"] * max(0.0, 1 + p.get("lev", 2) * (px / p["entry"] - 1))
+        return p["qty"] * px
+    return st["cash"] + sum(value(p) for p in st["positions"])
 
 
 def fetch(coin):
@@ -146,6 +155,30 @@ def fetch(coin):
     df = df.rename(columns=str.lower)[["open", "high", "low", "close", "volume"]].dropna()
     df.index = df.index.tz_convert("UTC")
     return df
+
+
+def fetch_stock(sym):
+    df = yf.download(sym, period="60d", interval="1h", progress=False, auto_adjust=False)
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+    df = df.rename(columns=str.lower)[["open", "high", "low", "close", "volume"]].dropna()
+    df.index = df.index.tz_convert("UTC")
+    return df
+
+
+def refresh_stock_playbook():
+    """Stock rules for the 3x funds, rebuilt daily; empty (no stock trades) unless its replay passed."""
+    if not STOCK_PLAYBOOK.exists() or time.time() - STOCK_PLAYBOOK.stat().st_mtime > 86400:
+        log("Rebuilding stock playbook (daily)")
+        subprocess.run([sys.executable, str(ROOT / "scripts" / "backtest_stocks.py")], cwd=ROOT,
+                       stdout=open(ROOT / "logs" / "backtest_stocks.log", "a", encoding="utf-8"), stderr=subprocess.STDOUT)
+    try:
+        pb = json.loads(STOCK_PLAYBOOK.read_text(encoding="utf-8"))
+        if (os.environ.get("CRYPTO_GATE") or "").strip().lower() != "off" and pb["replay"][size_mode()]["profitable"] is not True:
+            return []
+        return pb.get("rules", [])
+    except Exception:
+        return []
 
 
 def refresh_playbook():
@@ -213,7 +246,7 @@ def manage(st, data):
                 f"{p['strategy']}", f"Crypto {'win' if pnl > 0 else 'loss'}: {p['coin']} ${pnl:+.2f}")
 
 
-GOAL = 1000
+GOAL = 2000
 
 
 def milestones(st, total):
@@ -224,13 +257,13 @@ def milestones(st, total):
         return
     st["account_total"] = round(total, 2)
     hit = st.setdefault("milestones_hit", [])
-    for m in (100, 250, 500, GOAL):
+    for m in (100, 250, 500, 1000, 1500, GOAL):
         if total >= m and m not in hit:
             hit.append(m)
             if m == GOAL:
                 log(f"GOAL: the account is worth ${total:,.2f}. Phase 2: time to split it into long-term funds "
                     "(see ai_portfolio_journal.md for the plan it has been practising). Next: connect the AI stocks "
-                    "and funds to real orders, then options.", "Account hit $1,000!")
+                    "and funds to real orders, then options.", "Account hit $2,000!")
             else:
                 log(f"Milestone: the account is worth ${total:,.2f} ({total / GOAL:.0%} of the ${GOAL:,} goal).",
                     f"Account passed ${m}")
@@ -341,7 +374,9 @@ def enter(st, coin, name, entry, stop, rule, sit, ts, eq):
         return "skip"
     cost = qty * entry * (1 + cl.FEE)
     live = {}
-    fund = FUNDS_2X.get(coin) if leverage_on() and market_open(entry=True) else None
+    fund, lev = LEV_FUNDS.get(coin, (None, 1)) if leverage_on() and market_open(entry=True) else (None, 1)
+    if coin in STOCKS and not fund:
+        return "skip"                     # stock signals are only ever traded through a leveraged fund
     if fund:
         try:
             fpx = fund_price(fund)
@@ -349,10 +384,16 @@ def enter(st, coin, name, entry, stop, rule, sit, ts, eq):
             log(f"No price for {fund}: {e}; trading the coin instead")
             fund = None
     if fund:
-        budget = cost if mode == "all_in" else cost / 2       # 2x fund: half the size keeps the same risk
+        if mode == "all_in":
+            budget = st["cash"]
+        else:
+            budget = cost / lev                                # lev x fund: 1/lev of the size keeps the same risk
         shares = int(budget / (fpx * (1 + FUND_COST)))         # whole shares so a stop order is allowed
-        fstop = round(fpx * (1 - 2 * (entry - stop) / entry), 2)
+        fstop = round(fpx * (1 - lev * (entry - stop) / entry), 2)
         if shares < 1:
+            if coin in STOCKS:
+                log(f"{fund} costs ${fpx:,.2f}: under one share with this cash, skipped")
+                return "skip"
             log(f"{fund} costs ${fpx:,.2f}: under one share with this cash, trading {coin} instead")
             fund = None
     if fund:
@@ -369,12 +410,12 @@ def enter(st, coin, name, entry, stop, rule, sit, ts, eq):
         st["cash"] -= fcost
         ex = rule["exit"]
         target = entry + ex["target"] * risk if ex["target"] else None
-        st["positions"].append(dict(coin=coin, fund=fund, fund_qty=shares, fund_entry=fpx, fund_stop=fstop,
+        st["positions"].append(dict(coin=coin, fund=fund, lev=lev, fund_qty=shares, fund_entry=fpx, fund_stop=fstop,
                                     strategy=name, qty=qty, entry=entry, stop=stop, target=target, risk=risk,
                                     be=ex["be"], trail=ex.get("trail", 0), high=entry, cost=fcost,
                                     opened=ts, checked=ts, situation=sit, rule=rule["when"], **live))
-        log(f"{'LIVE' if LIVE else 'PAPER'} BUY {shares} {fund} (2x {coin}) @ {fpx:,.2f} = ${fcost:,.2f} · "
-            f"stop {fstop:,.2f} · {cl.exit_label(ex)} on {coin} · {name}", f"Crypto buy: {fund} (2x {coin})")
+        log(f"{'LIVE' if LIVE else 'PAPER'} BUY {shares} {fund} ({lev}x {coin}) @ {fpx:,.2f} = ${fcost:,.2f} · "
+            f"stop {fstop:,.2f} · {cl.exit_label(ex)} on {coin} · {name}", f"Desk buy: {fund} ({lev}x {coin})")
         return "done"
     if (os.environ.get("CRYPTO_FUNDS_ONLY") or "").strip() == "1":
         return "skip"                  # coins cost ~0.9% per side on Robinhood: trade only the 2x funds
@@ -439,7 +480,7 @@ def retry_waiting(st):
             del st["waiting"][coin]
 
 
-def open_new(st, data, rules):
+def open_new(st, data, rules, stock_rules=None):
     prices = {c: float(d.close.iloc[-1]) for c, d in data.items()}
     eq = equity(st, prices)
     if st["paused"] or (ROOT / "STOP").exists():
@@ -451,7 +492,7 @@ def open_new(st, data, rules):
     lim = limits()
     if st["day"]["realized"] <= -lim["daily"] * st["start"]:
         return
-    if LIVE and not replay_passed():
+    if LIVE and not replay_passed() and not stock_rules:
         if st.get("gate_logged") != st["day"]["date"]:
             st["gate_logged"] = st["day"]["date"]
             log("No live trades today: the playbook lost money when the last months were replayed with this "
@@ -467,11 +508,17 @@ def open_new(st, data, rules):
         if st["last_signal"].get(coin) == ts:
             continue
         st["last_signal"][coin] = ts
+        is_stock = coin in STOCKS
+        if is_stock and not (stock_rules and market_open(entry=True)):
+            continue
+        if not is_stock and LIVE and not replay_passed():
+            continue
         sit = cl.situation(d, i)
+        book = stock_rules if is_stock else rules
         for name, entry, stop in cl.signals_at(d, i):
-            if not cl.tradeable(sit, entry, stop):
+            if not cl.tradeable(sit, entry, stop, cl.STOCK_MIN_STOP if is_stock else None):
                 continue
-            rule = next((r for r in rules if r["strategy"] == name and all(sit.get(k) == v for k, v in r["when"].items())), None)
+            rule = next((r for r in book if r["strategy"] == name and all(sit.get(k) == v for k, v in r["when"].items())), None)
             if not rule:
                 continue
             res = enter(st, coin, name, entry, stop, rule, sit, ts, eq)
@@ -506,8 +553,10 @@ def save_15m(coins):
 
 
 def live_price(coin):
-    """Latest trade price from Coinbase's public ticker (no key needed)."""
+    """Latest trade price from Coinbase's public ticker (no key needed); stocks from Yahoo 1-minute bars."""
     import urllib.request
+    if coin in STOCKS:
+        return fund_price(coin)
     try:
         req = urllib.request.Request(f"https://api.exchange.coinbase.com/products/{coin}-USD/ticker",
                                      headers={"User-Agent": "Mozilla/5.0 trading-desk"})
@@ -618,10 +667,22 @@ def main():
                 data[c] = cl.prepare(raw, btc_trend)
         except Exception as e:
             log(f"Data error {c}: {e}")
+    stock_rules = None
+    if leverage_on():
+        stock_rules = refresh_stock_playbook()
+        try:
+            spy = fetch_stock("SPY")
+            spy_trend = cl.daily_trend_series(spy)
+            for s_ in STOCKS:
+                raw = spy if s_ == "SPY" else fetch_stock(s_)
+                if len(raw) > 200:
+                    data[s_] = cl.prepare(raw, spy_trend)
+        except Exception as e:
+            log(f"Stock data error: {e}")
     manage(st, data)
     if st.get("waiting"):
         retry_waiting(st)
-    open_new(st, data, rules)
+    open_new(st, data, rules, stock_rules)
     save_15m(COINS)
     prices = {c: float(d.close.iloc[-1]) for c, d in data.items()}
     eq = equity(st, prices)
@@ -632,7 +693,8 @@ def main():
         log(f"PAUSED: equity ${eq:.2f} is {dd:.0%} below peak ${st['peak']:.2f}. Review, then set paused=false.", "Crypto desk paused")
     st["equity"] = round(eq, 2)
     STATE.write_text(json.dumps(st, indent=2, default=str), encoding="utf-8")
-    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')}  {'LIVE' if LIVE else 'paper'}  equity ${eq:.2f} | cash ${st['cash']:.2f} | open {len(st['positions'])} | rules {len(rules)}" + ("  PAUSED" if st["paused"] else ""))
+    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')}  {'LIVE' if LIVE else 'paper'}  equity ${eq:.2f} | cash ${st['cash']:.2f} | open {len(st['positions'])} | rules {len(rules)}"
+          + (f" + {len(stock_rules)} stock" if stock_rules else "") + ("  PAUSED" if st["paused"] else ""))
 
 
 if __name__ == "__main__":

@@ -93,7 +93,7 @@ def learn(df, cut):
     return ranked, tested
 
 
-def replay(data, rules, cut, all_in, start=100.0, max_open=2, risk=0.01):
+def replay(data, rules, cut, all_in, start=100.0, max_open=2, risk=0.01, min_stop=None):
     """Trade the unseen period the way the live desk would: hour by hour, first matching rule,
     one position per coin, max_open at a time, real sizing and fees. Rule averages can look good
     while the desk itself loses (it misses the rare big wins while it's busy), so this is the gate."""
@@ -103,7 +103,7 @@ def replay(data, rules, cut, all_in, start=100.0, max_open=2, risk=0.01):
         for i in range(max(int(d.index.searchsorted(cut)), 150), len(d) - 1):
             sit = cl.situation(d, i)
             for name, e, s in cl.signals_at(d, i):
-                if not cl.tradeable(sit, e, s):
+                if not cl.tradeable(sit, e, s, min_stop):
                     continue
                 r = next((r for r in rules if r["strategy"] == name and all(sit.get(k) == v for k, v in r["when"].items())), None)
                 if not r:

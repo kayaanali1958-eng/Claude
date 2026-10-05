@@ -64,11 +64,11 @@ Paper start: $100. Live: the book is CRYPTO_LIVE_MAX from .env: a dollar amount 
 - Costs: 0.2% per buy and per sell is assumed (Robinhood's spread).
 - Log: `crypto_journal.md`; state: `crypto_state.json`.
 
-## The plan: $1,000, then long-term funds
-- **Phase 1 (until the Agentic account is worth $1,000):** the crypto desk grows the cash. It checks the whole account value once a day and alerts at $100, $250, $500 and $1,000.
-- **Phase 2 (from $1,000):** split into long-term funds, run by scripts/ai_portfolio.py: S&P 500 (VOO) 35%, Nasdaq-100 (QQQM) 20%, chip makers (SMH) 15%, and a growth slice of 30%: the 4 strongest of about 120 big US stocks, including AI build-out stocks (chips, memory, chip equipment, networking/servers, power/cooling, data centers, cloud builders) and government winners (defense, space, nuclear, gov tech; a jump in federal contracts on USAspending.gov ranks a stock higher) and every other market leader. Backtest since 2017: +35%/yr, worst drop -29% above their 200-day average, ranked by 6-month return, weekly; an AI stock is sold on a 15% drop from its high. Funds are rebalanced weekly when they drift.
+## The plan: $2,000, then long-term funds
+- **Phase 1 (until the Agentic account is worth $2,000):** the leveraged desk grows the cash: 2x crypto funds (BITX/ETHU/XXRP) and 3x stock funds (UPRO/TQQQ/SOXL on SPY/QQQ/SMH signals, playbook in backtests/stock_playbook.json, rebuilt daily with its own replay gate), whichever tested setup shows up first, one trade at a time. It checks the account value every 4 hours and alerts at $1,000, $1,500 and $2,000.
+- **Phase 2 (from $2,000):** split into long-term funds, run by scripts/ai_portfolio.py: S&P 500 (VOO) 35%, Nasdaq-100 (QQQM) 20%, chip makers (SMH) 15%, and a growth slice of 30%: the 4 strongest of about 120 big US stocks, including AI build-out stocks (chips, memory, chip equipment, networking/servers, power/cooling, data centers, cloud builders) and government winners (defense, space, nuclear, gov tech; a jump in federal contracts on USAspending.gov ranks a stock higher) and every other market leader. Backtest since 2017: +35%/yr, worst drop -29% above their 200-day average, ranked by 6-month return, weekly; an AI stock is sold on a 15% drop from its high. Funds are rebalanced weekly when they drift.
 - **Phase 3 (after phase 2 is running):** options on the AI stocks, only with defined risk (bought calls or call spreads, never selling naked options), sized like the crypto desk and tested the same way before any real order. Needs options approval on the Robinhood account.
-- Until the switch it runs as paper (AI_PORTFOLIO_START in .env, default $1,000) so the plan is already tested. Backtest: backtests/ai_portfolio_backtest.md.
+- Until the switch it runs as paper (AI_PORTFOLIO_START in .env, default $1,000 paper) so the plan is already tested. Backtest: backtests/ai_portfolio_backtest.md.
 
 ## Evidence gate
 - Paper mode: every strategy may trade, so the desk keeps collecting evidence.

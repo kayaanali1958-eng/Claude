@@ -52,8 +52,15 @@ MIN_STOP_PCT = 0.015
 TRADE_COINS = ["BTC", "ETH", "XRP", "DOGE", "AVAX", "LTC"]
 
 
-def tradeable(sit, entry, stop):
-    return sit.get("trend") == "up" and (entry - stop) / entry >= MIN_STOP_PCT
+def tradeable(sit, entry, stop, min_stop=None):
+    return sit.get("trend") == "up" and (entry - stop) / entry >= (MIN_STOP_PCT if min_stop is None else min_stop)
+
+
+# Stock signals, traded only through 3x funds during market hours. Stock funds cost ~0.05% per side,
+# so a tighter stop is worth taking than on Robinhood coins.
+STOCK_SIGNALS = ["SPY", "QQQ", "SMH"]
+STOCK_MIN_STOP = 0.005
+STOCK_FEE = 0.0005
 
 
 def strategy(name):
