@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Long-term portfolio manager (paper): the money split into funds, with an AI-infrastructure slice.
+"""Long-term portfolio manager (paper): the money split into funds, with an AI and government slice.
 
 Phase 2 of the plan (from $1,000; until then the crypto desk grows the account). The split:
   - FUNDS: S&P 500 (VOO) 35%, Nasdaq-100 (QQQM) 20%, chip makers (SMH) 15%: always held,
     brought back to their weights each week when they drift.
-  - AI slice, 30%: everything AI needs - chips, memory, chip equipment, networking, servers,
-    power, cooling, data centers, cloud builders. Each week, rank by 6-month return; a stock is
+  - Growth slice, 30%: everything AI needs (chips, memory, chip equipment, networking, servers,
+    power, cooling, data centers, cloud builders) plus government winners (defense, space,
+    nuclear, gov tech). Companies whose new federal contract money jumped (USAspending.gov)
+    rank higher. Each week, rank by 6-month return; a stock is
     eligible only if it is above its 200-day average (actually going up). Hold the top HOLD names;
     with fewer eligible, that part stays in cash. Every day, sell an AI stock that falls TRAIL below
     its highest close since it was bought (funds are never trail-sold: they are the long-term core).
@@ -38,17 +40,28 @@ UNIVERSE = {
     "power and cooling": ["VRT", "ETN", "CEG", "VST"],
     "data centers": ["EQIX", "DLR"],
     "cloud builders": ["MSFT", "GOOGL", "AMZN", "META", "ORCL"],
+    "defense and government": ["LMT", "RTX", "NOC", "GD", "LHX", "HII", "PLTR", "LDOS", "BAH", "CACI", "KTOS", "AVAV"],
+    "space": ["RKLB"],
+    "nuclear": ["CCJ", "BWXT"],
 }
+# Government contracts (USAspending.gov, the official record of federal awards): companies whose new
+# contract money jumped get a ranking bonus. Name = how the company appears as a federal recipient.
+GOV_NAMES = {"LMT": "LOCKHEED MARTIN", "RTX": "RAYTHEON", "NOC": "NORTHROP GRUMMAN", "GD": "GENERAL DYNAMICS",
+             "LHX": "L3HARRIS", "HII": "HUNTINGTON INGALLS", "PLTR": "PALANTIR", "LDOS": "LEIDOS",
+             "BAH": "BOOZ ALLEN HAMILTON", "CACI": "CACI", "KTOS": "KRATOS", "AVAV": "AEROVIRONMENT",
+             "RKLB": "ROCKET LAB", "BWXT": "BWXT", "MSFT": "MICROSOFT", "AMZN": "AMAZON WEB SERVICES",
+             "ORCL": "ORACLE", "GOOGL": "GOOGLE", "NVDA": "NVIDIA", "DELL": "DELL"}
+GOV_FILE = ROOT / "backtests" / "gov_contracts.json"
 TICKERS = [t for group in UNIVERSE.values() for t in group]
 HOLD, LOOKBACK, TREND, TRAIL, COST = 4, 126, 200, 0.15, 0.001
 FUNDS = {"VOO": ("S&P 500", 0.35), "QQQM": ("Nasdaq-100", 0.20), "SMH": ("chip makers", 0.15)}
 AI_SLICE = 1 - sum(w for _, w in FUNDS.values())
 
 
-def targets(close, i):
-    """{ticker: weight} for day i: the funds plus the AI picks."""
+def targets(close, i, boost=None):
+    """{ticker: weight} for day i: the funds plus the AI and government picks."""
     want = {t: w for t, (_, w) in FUNDS.items()}
-    for t in picks(close[TICKERS], i):
+    for t in picks(close[TICKERS], i, boost):
         want[t] = AI_SLICE / HOLD
     return want
 
@@ -64,15 +77,53 @@ def download(tickers, period):
     return df.dropna(how="all")
 
 
-def picks(close, i):
-    """Top HOLD eligible tickers on day i (uses closes up to and including day i)."""
+def gov_awards(refresh=False):
+    """{ticker: {"recent": $ in the latest complete 90 days, "before": $ in the 90 days before, "surge": ratio}},
+    refreshed weekly. Windows end 90 days back because defense awards are published with that delay."""
+    import urllib.request
+    from datetime import date, timedelta
+    if GOV_FILE.exists() and not refresh:
+        cached = json.loads(GOV_FILE.read_text(encoding="utf-8"))
+        if cached.get("date", "") >= (date.today() - timedelta(days=7)).isoformat():
+            return cached["awards"]
+    def total(name, start, end):
+        body = {"filters": {"time_period": [{"start_date": start, "end_date": end}], "award_type_codes": ["A", "B", "C", "D"],
+                            "recipient_search_text": [name]}, "category": "recipient", "limit": 20}
+        req = urllib.request.Request("https://api.usaspending.gov/api/v2/search/spending_by_category/recipient/",
+                                     data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
+        return sum(r["amount"] for r in json.load(urllib.request.urlopen(req, timeout=30))["results"])
+    t = date.today()
+    lag = timedelta(days=90)                 # defense awards reach USAspending about 90 days late
+    awards = {}
+    for tk, name in GOV_NAMES.items():
+        try:
+            recent = total(name, (t - lag - timedelta(days=90)).isoformat(), (t - lag).isoformat())
+            before = total(name, (t - lag - timedelta(days=180)).isoformat(), (t - lag - timedelta(days=91)).isoformat())
+            awards[tk] = dict(recent=round(recent), before=round(before), surge=round(recent / before, 2) if before > 0 else None)
+        except Exception as e:
+            print(f"contracts {tk}: {e}")
+    (ROOT / "backtests").mkdir(exist_ok=True)
+    GOV_FILE.write_text(json.dumps(dict(date=t.isoformat(), awards=awards), indent=1), encoding="utf-8")
+    return awards
+
+
+def gov_boost(awards):
+    """Ranking bonus: new federal contract money at least 1.5x the previous 90 days and over $100M."""
+    return {tk: 1.25 for tk, a in (awards or {}).items()
+            if a.get("surge") and a["surge"] >= 1.5 and a["recent"] >= 1e8}
+
+
+def picks(close, i, boost=None):
+    """Top HOLD eligible tickers on day i (uses closes up to and including day i). An uptrend is always
+    required; a government-contract surge only moves a stock up the ranking."""
     if i < TREND:
         return []
     px = close.iloc[i]
     sma = close.iloc[i - TREND + 1:i + 1].mean()
     mom = px / close.iloc[i - LOOKBACK] - 1
     ok = (px > sma) & (mom > 0) & px.notna() & sma.notna()
-    return list(mom[ok].sort_values(ascending=False).index[:HOLD])
+    score = mom * pd.Series({t: (boost or {}).get(t, 1.0) for t in mom.index})
+    return list(score[ok].sort_values(ascending=False).index[:HOLD])
 
 
 def backtest():
@@ -166,7 +217,13 @@ def daily():
     if week != st["week"]:
         st["week"] = week
         value = st["cash"] + sum(h["qty"] * float(px[t]) for t, h in st["holdings"].items())
-        want = targets(close, i)
+        try:
+            awards = gov_awards()
+        except Exception as e:
+            awards = {}
+            print(f"government contracts unavailable: {e}")
+        boost = gov_boost(awards)
+        want = targets(close, i, boost)
         for t in list(st["holdings"]):
             h = st["holdings"][t]
             if t not in want:
@@ -194,6 +251,10 @@ def daily():
                 st["cash"] -= buy
                 why = (f"target {w:.0%}" if t in FUNDS else
                        f"up {px[t] / close[t].iloc[i - LOOKBACK] - 1:+.0%} in 6 months, above its 200-day average")
+                if t in boost:
+                    a = awards[t]
+                    why += (f"; federal contracts ${a['recent'] / 1e6:,.0f}M in the latest reported quarter, "
+                            f"{a['surge']:.1f}x the quarter before (USAspending.gov)")
                 log(f"BUY ${buy:,.2f} of {t} ({label(t)}) @ {px[t]:,.2f}: {why}", f"Portfolio: bought {t}")
         if not any(t not in FUNDS for t in want):
             log("No AI stock is in an uptrend: the AI slice stays in cash this week.")
