@@ -201,6 +201,9 @@ def daily():
     st["last_run"], st["value"] = today, round(value, 2)
     STATE.write_text(json.dumps(st, indent=2), encoding="utf-8")
     names = ", ".join(st["holdings"]) or "cash only"
+    if now.weekday() == 4:                                      # Friday: weekly score to the phone
+        notify.push("Paper portfolio this week", f"Value ${value:,.2f} ({value / st['start'] - 1:+.1%} since start). "
+                    f"Holding: {names}. Practice money only.")
     print(f"{today}  Long-term portfolio (paper)  value ${value:,.2f} ({value / st['start'] - 1:+.1%}) | {names}")
 
 
