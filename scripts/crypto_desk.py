@@ -477,7 +477,7 @@ WAIT_MIN, WAIT_EVERY = 60, 10          # spread too wide: retry every 10 minutes
 
 def retry_waiting(st):
     """Entries put on hold because Robinhood's spread was too wide: retry while the setup still holds."""
-    if news_blackout():
+    if news_blackout() or news_shock(st):
         return
     for coin, w in list(st.get("waiting", {}).items()):
         now = time.time()
@@ -536,6 +536,48 @@ def news_blackout():
     return None
 
 
+SHOCK_WORDS = ["strait of hormuz", "missile strike", "airstrike", "air strike", "invasion", "declares war",
+               "declared war", "act of war", "nuclear strike", "terror attack", "martial law", "emergency rate cut",
+               "emergency meeting", "trading halted", "circuit breaker", "flash crash", "bank collapse",
+               "bank run", "new tariffs", "tariffs on", "sanctions on", "assassination", "coup"]
+SHOCK_PAUSE_H = 2
+
+
+def news_shock(st):
+    """Breaking market-shock headline (Finnhub general news, last 60 min): pauses new entries for 2 hours.
+    Free API key in .env (FINNHUB_KEY); without it this check is skipped. No Claude usage."""
+    import urllib.request
+    if time.time() < st.get("shock_until", 0):
+        return st.get("shock_headline")
+    key = os.environ.get("FINNHUB_KEY")
+    if not key:
+        return None
+    cache = ROOT / "news" / "shock_news.json"
+    cache.parent.mkdir(exist_ok=True)
+    if not cache.exists() or time.time() - cache.stat().st_mtime > 600:
+        try:
+            req = urllib.request.Request(f"https://finnhub.io/api/v1/news?category=general&token={key}",
+                                         headers={"User-Agent": "Mozilla/5.0"})
+            cache.write_text(urllib.request.urlopen(req, timeout=15).read().decode("utf-8"), encoding="utf-8")
+        except Exception as e:
+            print(f"breaking news unavailable: {e}")
+    try:
+        items = json.loads(cache.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    for n in items:
+        if time.time() - n.get("datetime", 0) > 3600:
+            continue
+        text = f"{n.get('headline', '')} {n.get('summary', '')}".lower()
+        if any(w in text for w in SHOCK_WORDS):
+            st["shock_until"] = n["datetime"] + SHOCK_PAUSE_H * 3600
+            st["shock_headline"] = n.get("headline", "")[:160]
+            log(f"Breaking news pause ({SHOCK_PAUSE_H}h, no new trades): {st['shock_headline']}",
+                "Desk: breaking news, new trades paused")
+            return st["shock_headline"]
+    return None
+
+
 def open_new(st, data, rules, stock_rules=None):
     prices = {c: float(d.close.iloc[-1]) for c, d in data.items()}
     eq = equity(st, prices)
@@ -547,6 +589,8 @@ def open_new(st, data, rules, stock_rules=None):
         return
     lim = limits()
     if st["day"]["realized"] <= -lim["daily"] * st["start"]:
+        return
+    if news_shock(st):
         return
     event = news_blackout()
     if event:
@@ -682,6 +726,46 @@ def quick_manage(st):
             f"Crypto {'win' if pnl > 0 else 'loss'}: {p['coin']} ${pnl:+.2f}")
 
 
+def ensure_dashboard():
+    """Start the phone dashboard (scripts/dashboard.py) if nothing answers on its port yet."""
+    import socket
+    with socket.socket() as sk:
+        sk.settimeout(1)
+        if sk.connect_ex(("127.0.0.1", 8765)) == 0:
+            return
+    kw = dict(cwd=ROOT, stdout=open(ROOT / "logs" / "dashboard.log", "a", encoding="utf-8"), stderr=subprocess.STDOUT)
+    if os.name == "nt":
+        kw["creationflags"] = 0x00000008 | 0x00000200       # detached, own process group
+    else:
+        kw["start_new_session"] = True
+    subprocess.Popen([sys.executable, str(ROOT / "scripts" / "dashboard.py")], **kw)
+    flag = ROOT / "news" / "dashboard_announced"
+    if not flag.exists():
+        import dashboard
+        flag.parent.mkdir(exist_ok=True)
+        flag.write_text("1")
+        notify.push("Desk dashboard ready", f"On your phone (same Wi-Fi) open http://{dashboard.lan_ip()}:8765 "
+                    "then Share > Add to Home Screen.")
+
+
+def auto_update(st):
+    """Once a day around 3 AM ET, pull the newest version (scripts/update.ps1 or update.sh) in the
+    background. Your settings, .env and journals are kept. AUTO_UPDATE=0 in .env turns it off."""
+    if (os.environ.get("AUTO_UPDATE") or "1").strip() == "0":
+        return
+    now = datetime.now(ET)
+    if now.hour != 3 or st.get("updated_date") == now.date().isoformat():
+        return
+    st["updated_date"] = now.date().isoformat()
+    if os.name == "nt":
+        cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(ROOT / "scripts" / "update.ps1")]
+    else:
+        cmd = ["bash", str(ROOT / "scripts" / "update.sh")]
+    subprocess.Popen(cmd, cwd=ROOT, stdout=open(ROOT / "logs" / "update.log", "a", encoding="utf-8"),
+                     stderr=subprocess.STDOUT)
+    log("Daily auto-update started (settings, .env and journals are kept)")
+
+
 def main():
     for stream in (sys.stdout, sys.stderr):
         try:
@@ -699,6 +783,10 @@ def main():
             log(f"Day {st['day']['date']}: {len(closed)} trades, realized ${st['day']['realized']:+.2f}, cash ${st['cash']:.2f}",
                 "Crypto daily recap" if closed else None)
         st["day"] = dict(date=today, realized=0.0)
+    try:
+        ensure_dashboard()
+    except Exception as e:
+        print(f"dashboard: {e}")
     hourly = "--full" in sys.argv or "--sync" in sys.argv or datetime.now().minute < 5
     if not hourly:                                   # 5-minute check: open positions and waiting entries
         if st["positions"]:
@@ -712,6 +800,7 @@ def main():
             print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')}  {'LIVE' if LIVE else 'paper'}  managed {len(st['positions'])} open position(s)")
         return
     sync_balance(st, today)
+    auto_update(st)
     # The AI-infrastructure paper portfolio rides on this timer; it acts once per weekday after 4 PM ET.
     subprocess.run([sys.executable, str(ROOT / "scripts" / "ai_portfolio.py")], cwd=ROOT,
                    stdout=open(ROOT / "logs" / "ai_portfolio.log", "a", encoding="utf-8"), stderr=subprocess.STDOUT)
