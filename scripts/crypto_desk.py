@@ -462,6 +462,8 @@ WAIT_MIN, WAIT_EVERY = 60, 10          # spread too wide: retry every 10 minutes
 
 def retry_waiting(st):
     """Entries put on hold because Robinhood's spread was too wide: retry while the setup still holds."""
+    if news_blackout():
+        return
     for coin, w in list(st.get("waiting", {}).items()):
         now = time.time()
         if now > w["until"] or any(p["coin"] == coin for p in st["positions"]) or len(st["positions"]) >= limits()["max_open"]:
@@ -486,6 +488,39 @@ def retry_waiting(st):
             del st["waiting"][coin]
 
 
+CALENDAR_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"   # free weekly economic calendar
+CALENDAR = ROOT / "news" / "econ_calendar.json"
+BLACKOUT_MIN = 30
+
+
+def news_blackout():
+    """The high-impact US event (Fed, CPI, jobs report...) within 30 minutes of now, or None.
+    New entries wait it out; open trades keep their stops. Calendar refreshed every 6 hours."""
+    import urllib.request
+    CALENDAR.parent.mkdir(exist_ok=True)
+    if not CALENDAR.exists() or time.time() - CALENDAR.stat().st_mtime > 6 * 3600:
+        try:
+            req = urllib.request.Request(CALENDAR_URL, headers={"User-Agent": "Mozilla/5.0"})
+            CALENDAR.write_text(urllib.request.urlopen(req, timeout=15).read().decode("utf-8"), encoding="utf-8")
+        except Exception as e:
+            print(f"economic calendar unavailable: {e}")
+    try:
+        events = json.loads(CALENDAR.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    now = datetime.now(timezone.utc)
+    for e in events:
+        if e.get("country") != "USD" or e.get("impact") != "High":
+            continue
+        try:
+            t = datetime.fromisoformat(e["date"]).astimezone(timezone.utc)
+        except Exception:
+            continue
+        if abs((now - t).total_seconds()) <= BLACKOUT_MIN * 60:
+            return f"{e.get('title', 'event')} at {t.astimezone(ET):%H:%M} ET"
+    return None
+
+
 def open_new(st, data, rules, stock_rules=None):
     prices = {c: float(d.close.iloc[-1]) for c, d in data.items()}
     eq = equity(st, prices)
@@ -497,6 +532,12 @@ def open_new(st, data, rules, stock_rules=None):
         return
     lim = limits()
     if st["day"]["realized"] <= -lim["daily"] * st["start"]:
+        return
+    event = news_blackout()
+    if event:
+        if st.get("blackout_logged") != event:
+            st["blackout_logged"] = event
+            log(f"News blackout: no new trades within {BLACKOUT_MIN} min of {event}")
         return
     if LIVE and not replay_passed() and not stock_rules:
         if st.get("gate_logged") != st["day"]["date"]:
