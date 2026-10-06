@@ -48,9 +48,9 @@ MAX_OPEN = 2
 # CRYPTO_LEVERAGE=2 in .env: during US market hours, a signal on these coins buys the 2x fund instead
 # (whole shares, real stop order). Exits follow the coin's signals; a fund can only be sold while the
 # stock market is open, so an exit at night or on a weekend is carried out at the next open.
-# Leveraged funds per signal: 2x crypto funds, and 3x stock funds for the SPY / QQQ / chip (SMH) signals.
+# Leveraged funds per signal: 2x crypto funds, 4x S&P (SPYU), and 3x Nasdaq / chip funds (TQQQ, SOXL).
 LEV_FUNDS = {"BTC": ("BITX", 2), "ETH": ("ETHU", 2), "XRP": ("XXRP", 2),
-             "SPY": ("UPRO", 3), "QQQ": ("TQQQ", 3), "SMH": ("SOXL", 3)}
+             "SPY": ("SPYU", 4), "QQQ": ("TQQQ", 3), "SMH": ("SOXL", 3)}     # SPYU: 4x S&P 500 (owner's choice)
 STOCKS = cl.STOCK_SIGNALS
 STOCK_PLAYBOOK = ROOT / "backtests" / "stock_playbook.json"
 FUND_COST = 0.001
