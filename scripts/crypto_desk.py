@@ -218,13 +218,7 @@ def manage(st, data):
             if exit_px is not None:
                 break
         if LIVE and exit_px is None and raise_live_stop(p):
-            res = crypto_live.move_stop(p["coin"], p["qty"], p["stop_order_id"], p["stop"])
-            if res.get("ok"):
-                p["stop_order_id"], p["live_stop"] = res.get("stop_order_id"), p["stop"]
-                log(f"LIVE stop on {p['coin']} raised to {p['stop']:,.4f}")
-            else:
-                p["stop"] = p.get("live_stop", p["stop"])
-                log(f"LIVE stop move FAILED on {p['coin']}: {res.get('error')}", "Crypto LIVE: check stop")
+            push_live_stop(p)
         if exit_px is not None and p.get("fund"):
             close_fund(st, p, why)
             continue
@@ -353,12 +347,33 @@ def replay_passed():
         return False
 
 
+def push_live_stop(p):
+    """Move the real stop order on Robinhood up to the desk's stop (coin or leveraged fund)."""
+    if p.get("fund"):
+        fstop = round(p["fund_entry"] * (1 + p.get("lev", 2) * (p["stop"] / p["entry"] - 1)), 2)
+        if fstop <= p.get("fund_stop", 0):
+            return
+        res = crypto_live.move_fund_stop(p["fund"], p["fund_qty"], p.get("fund_stop_order_id"), fstop)
+        if res.get("ok"):
+            p["fund_stop_order_id"], p["fund_stop"], p["live_stop"] = res.get("stop_order_id"), fstop, p["stop"]
+            what = "breakeven" if p["stop"] >= p["entry"] and p.get("live_stop", 0) <= p["entry"] * 1.0001 else "a higher level"
+            log(f"LIVE stop on {p['fund']} raised to {fstop:,.2f} ({what})")
+        else:                            # the desk still sells by itself at its own (higher) stop
+            log(f"LIVE stop move FAILED on {p['fund']}: {res.get('error')}", "Desk: check the stop in the app")
+        return
+    res = crypto_live.move_stop(p["coin"], p["qty"], p["stop_order_id"], p["stop"])
+    if res.get("ok"):
+        p["stop_order_id"], p["live_stop"] = res.get("stop_order_id"), p["stop"]
+        log(f"LIVE stop on {p['coin']} raised to {p['stop']:,.4f}")
+    else:
+        p["stop"] = p.get("live_stop", p["stop"])
+        log(f"LIVE stop move FAILED on {p['coin']}: {res.get('error')}", "Crypto LIVE: check stop")
+
+
 def raise_live_stop(p):
     """Move the real Robinhood stop up only in steps (breakeven, then every +0.5R), so a trailing
     stop doesn't cost a Claude call every hour. Between steps the desk sells itself if price hits
     the tighter stop it tracks (checked every 5 minutes)."""
-    if p.get("fund"):
-        return False                     # the fund keeps its first stop; the desk sells it on the trail
     live = p.get("live_stop", p["stop"])
     return p["stop"] > live and (live < p["entry"] <= p["stop"] or p["stop"] - live >= 0.5 * p["risk"])
 
@@ -411,7 +426,7 @@ def enter(st, coin, name, entry, stop, rule, sit, ts, eq):
                 log(f"LIVE buy FAILED {fund}: {res.get('error')}", "Crypto LIVE: buy failed")
                 return "skip"
             shares, fpx = int(float(res["filled_qty"])), float(res["avg_price"])
-            live = dict(fund_stop_order_id=res.get("stop_order_id"), buy_order_id=res.get("buy_order_id"))
+            live = dict(fund_stop_order_id=res.get("stop_order_id"), buy_order_id=res.get("buy_order_id"), live_stop=stop)
         fcost = shares * fpx * (1 + FUND_COST)
         st["cash"] -= fcost
         ex = rule["exit"]
@@ -639,14 +654,8 @@ def quick_manage(st):
                 p["high"] = max(p.get("high", p["entry"]), px)      # trail itself moves on hourly closes
             if p["be"] and px >= p["entry"] + p["risk"] and p["stop"] < p["entry"]:
                 p["stop"] = p["entry"]
-                if LIVE and not p.get("fund"):
-                    res = crypto_live.move_stop(p["coin"], p["qty"], p["stop_order_id"], p["stop"])
-                    if res.get("ok"):
-                        p["stop_order_id"], p["live_stop"] = res.get("stop_order_id"), p["stop"]
-                        log(f"LIVE stop on {p['coin']} raised to breakeven {p['stop']:,.4f}")
-                    else:
-                        p["stop"] = p.get("live_stop", p["stop"])
-                        log(f"LIVE stop move FAILED on {p['coin']}: {res.get('error')}", "Crypto LIVE: check stop")
+                if LIVE:
+                    push_live_stop(p)
                 else:
                     log(f"PAPER stop on {p['coin']} raised to breakeven {p['stop']:,.4f}")
             continue

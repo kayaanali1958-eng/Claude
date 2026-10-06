@@ -113,3 +113,12 @@ def sell_fund(symbol, stop_order_id, reason):
         f"if any {symbol} shares are left, sell all of them with a market order and wait for the fill. If the stop "
         f"order already filled, don't sell again. RESULT keys: ok, sold_qty, avg_price (the price the position "
         f"was actually closed at), how ('stop' or 'market').", tools=FUND_TOOLS)
+
+
+def move_fund_stop(symbol, shares, old_stop_order_id, new_stop):
+    return run(
+        f"Stock order, not crypto (use review_equity_order before place_equity_order). Raise the protective stop "
+        f"on {shares} shares of {symbol}: cancel open order {old_stop_order_id} (confirm it is canceled), then place a "
+        f"SELL stop order (stop loss, good till canceled, regular hours) for {shares} shares at stop price "
+        f"{new_stop:.2f}. If the new stop can't be placed, place the old one again. RESULT keys: ok, stop_order_id.",
+        tools=FUND_TOOLS)
