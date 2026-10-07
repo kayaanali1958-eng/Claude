@@ -110,6 +110,12 @@ def prepare(df, btc_daily_trend=None):
     asia = df[df.index.hour < 8]
     df["asia_hi"] = day.map(asia.high.groupby(asia.index.floor("D")).max())
     df["asia_lo"] = day.map(asia.low.groupby(asia.index.floor("D")).min())
+    # What the Asia session did (00-08 UTC): up / down / flat (1% either way). Known only once Asia has
+    # closed, so Asia-hour bars read "open" (no look-ahead). Lets the playbook learn patterns like
+    # "Asia pumped, then Europe/US sold it off".
+    a_ret = asia.close.groupby(asia.index.floor("D")).last() / asia.open.groupby(asia.index.floor("D")).first() - 1
+    a_dir = pd.Series(np.where(a_ret > 0.01, "up", np.where(a_ret < -0.01, "down", "flat")), index=a_ret.index)
+    df["asia"] = np.where(df.index.hour < 8, "open", day.map(a_dir).fillna("flat"))
     # daily trend, known at the start of each day (yesterday's values)
     d = df.resample("1D").agg({"close": "last"}).dropna()
     d["s20"], d["s50"] = d.close.rolling(20).mean(), d.close.rolling(50).mean()
@@ -292,7 +298,7 @@ def signals_at(d, i):
 
 def situation(d, i):
     r = d.iloc[i]
-    return dict(trend=r.trend, vol=r.vol, session=r.session, weekend=r.weekend, btc=r.btc)
+    return dict(trend=r.trend, vol=r.vol, session=r.session, weekend=r.weekend, btc=r.btc, asia=r.asia)
 
 
 def simulate(d, i, entry, stop):
