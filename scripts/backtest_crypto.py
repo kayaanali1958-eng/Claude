@@ -3,7 +3,7 @@
 
 Same method as scripts/backtest.py, on 2 years of hourly bars:
   - every strategy in scripts/crypto_lib.py, long only (Robinhood crypto can't be shorted)
-  - every situation (trend, volatility, session, weekend, BTC trend), one or two conditions at a time
+  - every situation (trend, volatility, session, weekend, BTC trend, what Asia did), one or two conditions at a time
   - every exit: 1.5R / 2R / 3R target (with or without breakeven at +1R, max hold 48 hours), or a
     trailing stop that lets winners run (2/3/4 x ATR under the highest high, max hold 7 days)
   - learned on the first 2/3 of the time, kept only if it also made money on the last 1/3
@@ -29,7 +29,7 @@ import crypto_lib as cl
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "backtests"
 DEFAULT = ["BTC", "ETH", "SOL", "XRP", "DOGE", "AVAX", "LINK", "LTC"]
-FEATURES = ["trend", "vol", "session", "weekend", "btc"]
+FEATURES = ["trend", "vol", "session", "weekend", "btc", "asia"]   # asia: what the Asia session did
 MIN_TRAIN, MIN_TEST = 20, 8
 TRAIN_EDGE, TEST_EDGE = 0.15, 0.05
 
