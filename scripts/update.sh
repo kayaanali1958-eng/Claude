@@ -12,5 +12,6 @@ for key in MODE CRYPTO_MODE; do
   line=$(grep -m1 "^$key: " news/update_backup/settings.md 2>/dev/null) || true
   [ -n "$line" ] && sed -i.bak "s/^$key: .*/$line/" settings.md && rm -f settings.md.bak
 done
-pip install -q yfinance pandas tabulate websockets
+PIP=pip; [ -x .venv/bin/pip ] && PIP=.venv/bin/pip       # the cloud server uses its own Python
+$PIP install -q yfinance pandas tabulate websockets
 echo "Updated. Your journal, state, lessons, .env and MODE / CRYPTO_MODE switches were kept."; grep -E "^(MODE|CRYPTO_MODE): " settings.md

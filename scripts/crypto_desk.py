@@ -762,21 +762,38 @@ def ensure_dashboard():
 
 
 def auto_update(st):
-    """Once a day around 3 AM ET, pull the newest version (scripts/update.ps1 or update.sh) in the
-    background. Your settings, .env and journals are kept. AUTO_UPDATE=0 in .env turns it off."""
-    if (os.environ.get("AUTO_UPDATE") or "1").strip() == "0":
+    """Every 15 minutes, check GitHub for a newer version and install it in the background
+    (scripts/update.ps1 or update.sh): a change pushed from the Claude app on the phone reaches the
+    desk within 15 minutes, laptop or cloud server. Your settings, .env and journals are kept.
+    AUTO_UPDATE=0 in .env turns it off."""
+    if (os.environ.get("AUTO_UPDATE") or "1").strip() == "0" or time.time() - st.get("update_checked", 0) < 900:
         return
-    now = datetime.now(ET)
-    if now.hour != 3 or st.get("updated_date") == now.date().isoformat():
+    st["update_checked"] = time.time()
+    branch = "claude/robinhood-trading-mcp-0z7yb0"
+    try:
+        git = lambda *a: subprocess.run(["git", *a], cwd=ROOT, capture_output=True, text=True, timeout=60).stdout.strip()
+        git("fetch", "-q", "origin", branch)
+        new = git("rev-parse", f"origin/{branch}")
+        if not new or new == git("rev-parse", "HEAD"):
+            return
+    except Exception as e:
+        print(f"update check: {e}")
         return
-    st["updated_date"] = now.date().isoformat()
     if os.name == "nt":
         cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(ROOT / "scripts" / "update.ps1")]
     else:
         cmd = ["bash", str(ROOT / "scripts" / "update.sh")]
     subprocess.Popen(cmd, cwd=ROOT, stdout=open(ROOT / "logs" / "update.log", "a", encoding="utf-8"),
                      stderr=subprocess.STDOUT)
-    log("Daily auto-update started (settings, .env and journals are kept)")
+    log(f"New version found ({new[:7]}): installing it (settings, .env and journals are kept)", "Desk updated")
+
+
+def update_after_save(st):
+    """Last step of a run, after the state is saved, so the update never races this run's writes."""
+    checked = st.get("update_checked")
+    auto_update(st)
+    if st.get("update_checked") != checked:
+        STATE.write_text(json.dumps(st, indent=2, default=str), encoding="utf-8")
 
 
 def main():
@@ -809,11 +826,11 @@ def main():
         if st.pop("sync_now", False):                # fresh balance right after a sell
             sync_balance(st, today, force=True)
         STATE.write_text(json.dumps(st, indent=2, default=str), encoding="utf-8")
+        update_after_save(st)
         if st["positions"]:
             print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')}  {'LIVE' if LIVE else 'paper'}  managed {len(st['positions'])} open position(s)")
         return
     sync_balance(st, today)
-    auto_update(st)
     # The AI-infrastructure paper portfolio rides on this timer; it acts once per weekday after 4 PM ET.
     subprocess.run([sys.executable, str(ROOT / "scripts" / "ai_portfolio.py")], cwd=ROOT,
                    stdout=open(ROOT / "logs" / "ai_portfolio.log", "a", encoding="utf-8"), stderr=subprocess.STDOUT)
@@ -867,6 +884,7 @@ def main():
     hist.append([datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ"), round(eq, 2)])
     del hist[:-2000]
     STATE.write_text(json.dumps(st, indent=2, default=str), encoding="utf-8")
+    update_after_save(st)
     print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')}  {'LIVE' if LIVE else 'paper'}  equity ${eq:.2f} | cash ${st['cash']:.2f} | open {len(st['positions'])} | rules {len(rules)}"
           + (f" + {len(stock_rules)} stock" if stock_rules else "") + ("  PAUSED" if st["paused"] else ""))
 
