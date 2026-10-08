@@ -260,7 +260,9 @@ def milestones(st, total):
     except (TypeError, ValueError):
         return
     st["account_total"] = round(total, 2)
-    hit = st.setdefault("milestones_hit", [])
+    if "milestones_hit" not in st:                     # new setup (e.g. a new server): no alerts for the past
+        st["milestones_hit"] = [m for m in (100, 250, 500, 1000, 1500, GOAL) if total >= m]
+    hit = st["milestones_hit"]
     for m in (100, 250, 500, 1000, 1500, GOAL):
         if total >= m and m not in hit:
             hit.append(m)
