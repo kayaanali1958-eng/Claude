@@ -845,6 +845,9 @@ def main():
         st["paused"] = True
         log(f"PAUSED: equity ${eq:.2f} is {dd:.0%} below peak ${st['peak']:.2f}. Review, then set paused=false.", "Crypto desk paused")
     st["equity"] = round(eq, 2)
+    hist = st.setdefault("history", [])                  # hourly account value, for the dashboard chart
+    hist.append([datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ"), round(eq, 2)])
+    del hist[:-2000]
     STATE.write_text(json.dumps(st, indent=2, default=str), encoding="utf-8")
     print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')}  {'LIVE' if LIVE else 'paper'}  equity ${eq:.2f} | cash ${st['cash']:.2f} | open {len(st['positions'])} | rules {len(rules)}"
           + (f" + {len(stock_rules)} stock" if stock_rules else "") + ("  PAUSED" if st["paused"] else ""))
