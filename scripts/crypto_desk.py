@@ -50,11 +50,19 @@ MAX_OPEN = 2
 # stock market is open, so an exit at night or on a weekend is carried out at the next open.
 # Leveraged funds per signal: 2x crypto funds, 4x S&P (SPYU), and 3x Nasdaq / chip funds (TQQQ, SOXL).
 LEV_FUNDS = {"BTC": ("BITX", 2), "ETH": ("ETHU", 2), "XRP": ("XXRP", 2),
-             "SPY": ("SPYU", 4), "QQQ": ("TQQQ", 3), "SMH": ("SOXL", 3)}     # SPYU: 4x S&P 500 (owner's choice)
-STOCKS = cl.STOCK_SIGNALS
+             "SPY": ("SPYU", 4), "QQQ": ("TQQQ", 3), "SMH": ("SOXL", 3),     # SPYU: 4x S&P 500 (owner's choice)
+             # Shorts: a falling market is traded by BUYING an inverse fund (it rises when the market falls),
+             # so no margin or short selling is needed. "-SPY" is the mirrored SPY the short rules learned on.
+             "-SPY": ("SPXS", 3), "-QQQ": ("SQQQ", 3), "-SMH": ("SOXS", 3), "-BTC": ("SBIT", 2), "-ETH": ("ETHD", 2)}
+STOCKS = cl.STOCK_SIGNALS + ["-" + s for s in cl.STOCK_SIGNALS]
 STOCK_PLAYBOOK = ROOT / "backtests" / "stock_playbook.json"
 FUND_COST = 0.001
 ET = ZoneInfo("America/New_York")
+
+
+def what(coin, lev):
+    """'3x short QQQ' or '2x BTC', for the journal and alerts."""
+    return f"{lev}x short {cl.base(coin)}" if coin.startswith("-") else f"{lev}x {coin}"
 
 
 def leverage_on():
@@ -113,7 +121,7 @@ def close_fund(st, p, why):
     st["sync_now"] = True
     st["closed"].append(dict(p, exit=px, reason=why, pnl=round(pnl, 2), R=round(r, 2),
                              closed=datetime.now(timezone.utc).isoformat()))
-    log(f"{'LIVE' if LIVE else 'PAPER'} SELL {p['fund_qty']} {p['fund']} ({p.get('lev', 2)}x {p['coin']}) @ {px:,.2f} ({why}) | "
+    log(f"{'LIVE' if LIVE else 'PAPER'} SELL {p['fund_qty']} {p['fund']} ({what(p['coin'], p.get('lev', 2))}) @ {px:,.2f} ({why}) | "
         f"P&L ${pnl:+.2f} ({r:+.2f}R) | {p['strategy']}", f"Crypto {'win' if pnl > 0 else 'loss'}: {p['fund']} ${pnl:+.2f}")
     return True
 
@@ -396,8 +404,8 @@ def enter(st, coin, name, entry, stop, rule, sit, ts, eq):
     cost = qty * entry * (1 + cl.FEE)
     live = {}
     fund, lev = LEV_FUNDS.get(coin, (None, 1)) if leverage_on() and market_open(entry=True) else (None, 1)
-    if coin in STOCKS and not fund:
-        return "skip"                     # stock signals are only ever traded through a leveraged fund
+    if (coin in STOCKS or coin.startswith("-")) and not fund:
+        return "skip"                     # stock signals and shorts are only ever traded through a fund
     if fund:
         try:
             fpx = fund_price(fund)
@@ -412,7 +420,7 @@ def enter(st, coin, name, entry, stop, rule, sit, ts, eq):
         shares = int(budget / (fpx * (1 + FUND_COST)))         # whole shares so a stop order is allowed
         fstop = round(fpx * (1 - lev * (entry - stop) / entry), 2)
         if shares < 1:
-            if coin in STOCKS:
+            if coin in STOCKS or coin.startswith("-"):
                 log(f"{fund} costs ${fpx:,.2f}: under one share with this cash, skipped")
                 return "skip"
             log(f"{fund} costs ${fpx:,.2f}: under one share with this cash, trading {coin} instead")
@@ -435,8 +443,8 @@ def enter(st, coin, name, entry, stop, rule, sit, ts, eq):
                                     strategy=name, qty=qty, entry=entry, stop=stop, target=target, risk=risk,
                                     be=ex["be"], trail=ex.get("trail", 0), high=entry, cost=fcost,
                                     opened=ts, checked=ts, situation=sit, rule=rule["when"], **live))
-        log(f"{'LIVE' if LIVE else 'PAPER'} BUY {shares} {fund} ({lev}x {coin}) @ {fpx:,.2f} = ${fcost:,.2f} · "
-            f"stop {fstop:,.2f} · {cl.exit_label(ex)} on {coin} · {name}", f"Desk buy: {fund} ({lev}x {coin})")
+        log(f"{'LIVE' if LIVE else 'PAPER'} BUY {shares} {fund} ({what(coin, lev)}) @ {fpx:,.2f} = ${fcost:,.2f} · "
+            f"stop {fstop:,.2f} · {cl.exit_label(ex)} on {coin} · {name}", f"Desk buy: {fund} ({what(coin, lev)})")
         return "done"
     if (os.environ.get("CRYPTO_FUNDS_ONLY") or "").strip() == "1":
         return "skip"                  # coins cost ~0.9% per side on Robinhood: trade only the 2x funds
@@ -481,7 +489,7 @@ def retry_waiting(st):
         return
     for coin, w in list(st.get("waiting", {}).items()):
         now = time.time()
-        if now > w["until"] or any(p["coin"] == coin for p in st["positions"]) or len(st["positions"]) >= limits()["max_open"]:
+        if now > w["until"] or any(cl.base(p["coin"]) == cl.base(coin) for p in st["positions"]) or len(st["positions"]) >= limits()["max_open"]:
             log(f"{coin}: spread stayed too wide for {WAIT_MIN} minutes, setup dropped")
             del st["waiting"][coin]
             continue
@@ -606,8 +614,8 @@ def open_new(st, data, rules, stock_rules=None):
                 "Crypto LIVE: on hold (strategy failed replay)")
         return
     for coin, d in data.items():
-        if len(st["positions"]) >= lim["max_open"] or any(p["coin"] == coin for p in st["positions"]) \
-                or coin in st.get("waiting", {}):
+        if len(st["positions"]) >= lim["max_open"] or any(cl.base(p["coin"]) == cl.base(coin) for p in st["positions"]) \
+                or any(cl.base(w) == cl.base(coin) for w in st.get("waiting", {})):      # never long and short at once
             continue
         i = len(d) - 2                                          # last completed hour
         ts = str(d.index[i])
@@ -617,6 +625,8 @@ def open_new(st, data, rules, stock_rules=None):
         is_stock = coin in STOCKS
         if is_stock and not (stock_rules and market_open(entry=True)):
             continue
+        if coin.startswith("-") and not market_open(entry=True):
+            continue                                            # shorts need the inverse fund: market hours only
         if not is_stock and LIVE and not replay_passed():
             continue
         sit = cl.situation(d, i)
@@ -624,7 +634,8 @@ def open_new(st, data, rules, stock_rules=None):
         for name, entry, stop in cl.signals_at(d, i):
             if not cl.tradeable(sit, entry, stop, cl.STOCK_MIN_STOP if is_stock else None):
                 continue
-            rule = next((r for r in book if r["strategy"] == name and all(sit.get(k) == v for k, v in r["when"].items())), None)
+            rule = next((r for r in book if r["strategy"] == name and r.get("side", "long") == cl.side(coin)
+                         and all(sit.get(k) == v for k, v in r["when"].items())), None)
             if not rule:
                 continue
             res = enter(st, coin, name, entry, stop, rule, sit, ts, eq)
@@ -661,6 +672,8 @@ def save_15m(coins):
 def live_price(coin):
     """Latest trade price from Coinbase's public ticker (no key needed); stocks from Yahoo 1-minute bars."""
     import urllib.request
+    if coin.startswith("-"):
+        return 1 / live_price(cl.base(coin))           # the mirrored price a short is tracked in
     if coin in STOCKS:
         return fund_price(coin)
     try:
@@ -811,11 +824,14 @@ def main():
     btc = fetch("BTC")
     btc_trend = cl.daily_trend_series(btc)
     data = {}
+    btc_down = cl.daily_trend_series(cl.mirror(btc))
     for c in COINS:
         try:
             raw = btc if c == "BTC" else fetch(c)
             if len(raw) > 200:
                 data[c] = cl.prepare(raw, btc_trend)
+                if leverage_on() and c in cl.SHORT_COINS:          # short side, through the inverse funds
+                    data["-" + c] = cl.prepare(cl.mirror(raw), btc_down)
         except Exception as e:
             log(f"Data error {c}: {e}")
     stock_rules = None
@@ -824,10 +840,12 @@ def main():
         try:
             spy = fetch_stock("SPY")
             spy_trend = cl.daily_trend_series(spy)
-            for s_ in STOCKS:
+            spy_down = cl.daily_trend_series(cl.mirror(spy))
+            for s_ in cl.STOCK_SIGNALS:
                 raw = spy if s_ == "SPY" else fetch_stock(s_)
                 if len(raw) > 200:
                     data[s_] = cl.prepare(raw, spy_trend)
+                    data["-" + s_] = cl.prepare(cl.mirror(raw), spy_down)
         except Exception as e:
             log(f"Stock data error: {e}")
     manage(st, data)

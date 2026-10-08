@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Stock playbook for the leveraged desk: the same strategy library as the crypto desk, learned on
-2 years of hourly SPY / QQQ / SMH bars. Live, a matching setup is traded through a 3x fund
-(UPRO / TQQQ / SOXL) during market hours by scripts/crypto_desk.py.
+2 years of hourly SPY / QQQ / SMH bars, long and short (shorts learned on the mirrored prices). Live,
+a matching setup is traded through a leveraged fund during market hours by scripts/crypto_desk.py:
+SPYU / TQQQ / SOXL for longs, the inverse funds SPXS / SQQQ / SOXS for shorts.
 
 Same method as scripts/backtest_crypto.py: learn on the first 2/3, keep what also worked on the last
 1/3, then replay that last 1/3 the way the desk trades it (the replay gate for live trading).
@@ -42,14 +43,17 @@ def main():
     cl.FEE = cl.STOCK_FEE
     raw = {s: load(s) for s in cl.STOCK_SIGNALS}
     trend = cl.daily_trend_series(raw["SPY"])
+    down = cl.daily_trend_series(cl.mirror(raw["SPY"]))
     prepared, rows = {}, []
     for s, d in raw.items():
         prepared[s] = cl.prepare(d, trend)
-        rows += bc.collect(s, prepared[s])
+        prepared["-" + s] = cl.prepare(cl.mirror(d), down)          # the short side
+        for k in (s, "-" + s):
+            rows += bc.collect(k, prepared[k])
         print(f"{s}: {len(d)} hourly bars")
     df = pd.DataFrame(rows)
     cut = df.ts.min() + (df.ts.max() - df.ts.min()) * 2 / 3
-    rules, tested = bc.learn(df, cut)
+    rules, tested = bc.learn_sides(df, cut)
     gate = {"all_in": bc.replay(prepared, rules, cut, True, min_stop=cl.STOCK_MIN_STOP),
             "risk_1pct": bc.replay(prepared, rules, cut, False, risk=0.01, min_stop=cl.STOCK_MIN_STOP),
             "risk_2pct": bc.replay(prepared, rules, cut, False, risk=0.02, min_stop=cl.STOCK_MIN_STOP)}
@@ -61,7 +65,8 @@ def main():
         date=stamp, symbols=cl.STOCK_SIGNALS, train_until=str(cut), combinations_tested=tested,
         fee_per_side=cl.STOCK_FEE, replay=gate, rules=rules), indent=2, default=str), encoding="utf-8")
     lines = [f"# Stock playbook {stamp}", "", f"{len(rules)} rules on {', '.join(cl.STOCK_SIGNALS)} "
-             f"(learned before {str(cut)[:10]}). Traded live through 3x funds.", ""]
+             f"(learned before {str(cut)[:10]}): {sum(r['side'] == 'long' for r in rules)} long, "
+             f"{sum(r['side'] == 'short' for r in rules)} short. Traded live through leveraged and inverse funds.", ""]
     for mode, g in gate.items():
         lines.append(f"- **{mode}**: {g['trades']} trades, {g['win']}% wins, {g['return_pct']:+.1f}% (before leverage), "
                      f"worst drop {g['max_drop_pct']}% -> {'PASS' if g['profitable'] else 'FAIL'}")

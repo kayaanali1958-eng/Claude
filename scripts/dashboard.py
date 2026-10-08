@@ -124,7 +124,7 @@ def trade_card(p):
         stop = p.get("fund_stop") or to_fund(p["stop"])
         target = to_fund(p["target"]) if p.get("target") else None
         now = to_fund(px) if px else None
-        sub = f"{lev}x {p['coin']} · {qty} shares"
+        sub = (f"{lev}x short {p['coin'][1:]}" if p["coin"].startswith("-") else f"{lev}x {p['coin']}") + f" · {qty} shares"
     else:
         name, qty, entry, stop, target, now = p["coin"], p["qty"], p["entry"], p["stop"], p.get("target"), px
         sub = f"{qty:.4f} coins"
@@ -216,7 +216,7 @@ def page():
     if st.get("waiting"):
         pills.append(f'<span class="pill warn">⏳ Waiting for a fair price: {", ".join(st["waiting"])}</span>')
     trades = "".join(trade_card(p) for p in st.get("positions", [])) or \
-        '<div class="card muted">No open trade. Watching Bitcoin, Ether, XRP, S&amp;P, Nasdaq and chips for a tested setup (9 AM–2 PM Central).</div>'
+        '<div class="card muted">No open trade. Watching Bitcoin, Ether, XRP, S&amp;P, Nasdaq and chips for a tested setup, up (buys) or down (inverse funds), 9 AM–2 PM Central.</div>'
     lt, fp = read_json("ai_portfolio_state.json"), read_json("futures_paper_state.json")
     return f"""<!doctype html><html lang=en><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover">

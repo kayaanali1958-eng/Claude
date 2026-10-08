@@ -2,7 +2,8 @@
 """Crypto playbook engine: learns which strategy works in which crypto market situation.
 
 Same method as scripts/backtest.py, on 2 years of hourly bars:
-  - every strategy in scripts/crypto_lib.py, long only (Robinhood crypto can't be shorted)
+  - every strategy in scripts/crypto_lib.py, long, and short on BTC/ETH (learned on the mirrored
+    price, traded through the 2x inverse funds SBIT/ETHD); long and short rules are learned separately
   - every situation (trend, volatility, session, weekend, BTC trend, what Asia did), one or two conditions at a time
   - every exit: 1.5R / 2R / 3R target (with or without breakeven at +1R, max hold 48 hours), or a
     trailing stop that lets winners run (2/3/4 x ATR under the highest high, max hold 7 days)
@@ -93,6 +94,22 @@ def learn(df, cut):
     return ranked, tested
 
 
+def learn_sides(df, cut):
+    """Long rules from the real prices, short rules from the mirrored ones ("-BTC"), each on its own:
+    markets fall differently than they rise, so a long edge says nothing about the short one."""
+    rules, tested = [], 0
+    for sd, g in df.groupby(df.coin.map(cl.side)):
+        r, t = learn(g, cut)
+        rules += [dict(x, side=sd) for x in r]
+        tested += t
+    return sorted(rules, key=lambda r: r["test"]["avgR"] * np.sqrt(r["test"]["trades"]), reverse=True), tested
+
+
+def match(rules, name, coin, sit):
+    return next((r for r in rules if r["strategy"] == name and r.get("side", "long") == cl.side(coin)
+                 and all(sit.get(k) == v for k, v in r["when"].items())), None)
+
+
 def replay(data, rules, cut, all_in, start=100.0, max_open=2, risk=0.01, min_stop=None):
     """Trade the unseen period the way the live desk would: hour by hour, first matching rule,
     one position per coin, max_open at a time, real sizing and fees. Rule averages can look good
@@ -105,12 +122,12 @@ def replay(data, rules, cut, all_in, start=100.0, max_open=2, risk=0.01, min_sto
             for name, e, s in cl.signals_at(d, i):
                 if not cl.tradeable(sit, e, s, min_stop):
                     continue
-                r = next((r for r in rules if r["strategy"] == name and all(sit.get(k) == v for k, v in r["when"].items())), None)
+                r = match(rules, name, coin, sit)
                 if not r:
                     continue
                 ex = {"trail": 0, **r["exit"]}
-                risk = e - s
-                tgt = e + ex["target"] * risk if ex["target"] else np.inf
+                rk = e - s                     # price risk (not `risk`, the sizing argument)
+                tgt = e + ex["target"] * rk if ex["target"] else np.inf
                 end = min(len(d) - 1, i + cl.hold_hours(ex))
                 st, hw, px, j = s, e, C[end], end
                 for j in range(i + 1, end + 1):
@@ -120,10 +137,10 @@ def replay(data, rules, cut, all_in, start=100.0, max_open=2, risk=0.01, min_sto
                         px = tgt; break
                     hw = max(hw, H[j])
                     if ex["trail"]:
-                        st = cl.trail_stop(st, e, risk, hw, A[j], ex["trail"])
-                    elif ex["be"] and H[j] >= e + risk:
+                        st = cl.trail_stop(st, e, rk, hw, A[j], ex["trail"])
+                    elif ex["be"] and H[j] >= e + rk:
                         st = max(st, e)
-                ev.append((d.index[i], d.index[j], coin, px * (1 - cl.FEE) / (e * (1 + cl.FEE)), risk / e))
+                ev.append((d.index[i], d.index[j], coin, px * (1 - cl.FEE) / (e * (1 + cl.FEE)), rk / e))
                 break
     ev.sort(key=lambda x: x[0])
     slots = 1 if all_in else max_open
@@ -131,7 +148,7 @@ def replay(data, rules, cut, all_in, start=100.0, max_open=2, risk=0.01, min_sto
     mdd, n, wins, streak, worst, busy = 0.0, 0, 0, 0, 0, []
     for t0, t1, coin, mult, risk_pct in ev:
         busy = [b for b in busy if b[0] > t0]
-        if len(busy) >= slots or any(b[1] == coin for b in busy):
+        if len(busy) >= slots or any(cl.base(b[1]) == cl.base(coin) for b in busy):   # never long and short at once
             continue
         frac = 1 / slots if all_in else min(risk / risk_pct, 1 / slots)
         eq *= 1 + frac * (mult - 1)
@@ -164,16 +181,24 @@ def main():
         r = collect(c, d)
         print(f"{c}: {len(d)} hourly bars, {len(r)} signals")
         rows += r
+    btc_down = cl.daily_trend_series(cl.mirror(raw["BTC"]))
+    for c in cl.SHORT_COINS:                       # the short side, on the mirrored prices
+        if c in prepared:
+            d = cl.prepare(cl.mirror(raw[c]), btc_down)
+            prepared["-" + c] = d
+            r = collect("-" + c, d)
+            print(f"short {c}: {len(r)} signals")
+            rows += r
     df = pd.DataFrame(rows)
     cut = df.ts.min() + (df.ts.max() - df.ts.min()) * 2 / 3
-    rules, tested = learn(df, cut)
-    traded = {c: d for c, d in prepared.items() if c in cl.TRADE_COINS}      # replay what the desk trades
+    rules, tested = learn_sides(df, cut)
+    traded = {c: d for c, d in prepared.items() if cl.base(c) in cl.TRADE_COINS}      # replay what the desk trades
     gate = {"all_in": replay(traded, rules, cut, True),
             "risk_1pct": replay(traded, rules, cut, False, risk=0.01),
             "risk_2pct": replay(traded, rules, cut, False, risk=0.02)}
     for mode, g in gate.items():
         print(f"Replay of the unseen period ({mode}): {g}")
-    base = df.groupby("strategy")["R_2.0_False"].agg(["count", "mean"]).round(2).rename(
+    base = df.assign(side=df.coin.map(cl.side)).groupby(["side", "strategy"])["R_2.0_False"].agg(["count", "mean"]).round(2).rename(
         columns={"count": "signals", "mean": "avg R (raw, 2R)"}).reset_index()
 
     OUT.mkdir(exist_ok=True)
@@ -193,12 +218,12 @@ def main():
                      f"-> {'PASS' if g['profitable'] else 'FAIL: no live trades with this sizing'}")
     lines += ["", f"## Playbook: {len(rules)} rules with an edge on unseen data", ""]
     if rules:
-        lines += ["| # | situation | strategy | exit | learned (trades, avg R) | unseen (trades, avg R, win%) |",
-                  "|---|---|---|---|---|---|"]
+        lines += ["| # | side | situation | strategy | exit | learned (trades, avg R) | unseen (trades, avg R, win%) |",
+                  "|---|---|---|---|---|---|---|"]
         for n, r in enumerate(rules[:30], 1):
             w = " & ".join(f"{k}={v}" for k, v in r["when"].items()) or "any situation"
             ex = cl.exit_label(r["exit"])
-            lines.append(f"| {n} | {w} | {r['strategy']} | {ex} | {r['train']['trades']}, {r['train']['avgR']:+.2f} | "
+            lines.append(f"| {n} | {r['side']} | {w} | {r['strategy']} | {ex} | {r['train']['trades']}, {r['train']['avgR']:+.2f} | "
                          f"{r['test']['trades']}, {r['test']['avgR']:+.2f}, {r['test']['win']}% |")
     else:
         lines.append("_Nothing held up on unseen data. The crypto desk will not open trades._")

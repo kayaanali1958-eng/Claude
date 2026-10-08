@@ -7,7 +7,12 @@ the ICT models: sweep then displacement (MSS), fair value gap and order block re
 volume absorbing a sweep.
 
 Used by scripts/backtest_crypto.py (learning) and scripts/crypto_desk.py (paper trading), so the
-desk trades exactly what was tested. Long only: Robinhood crypto can't be shorted.
+desk trades exactly what was tested.
+
+Shorts: a symbol starting with "-" (e.g. "-SPY") is the mirror image of the real one (every price
+turned upside down, 1/price), so every bullish strategy above becomes its bearish twin (a sweep of the
+prior-day HIGH, a bearish order block...) and the mirror's "up" trend is the real market's downtrend.
+The desk trades a short by BUYING an inverse fund (SPXS, SQQQ, SOXS, SBIT, ETHD): no margin needed.
 
 To add a strategy: write one more function with @strategy. The playbook decides where it works.
 """
@@ -61,6 +66,26 @@ def tradeable(sit, entry, stop, min_stop=None):
 STOCK_SIGNALS = ["SPY", "QQQ", "SMH"]
 STOCK_MIN_STOP = 0.005
 STOCK_FEE = 0.0005
+
+
+# Shorts are learned and traded on these (inverse funds exist for them; see LEV_FUNDS in crypto_desk.py).
+SHORT_COINS = ["BTC", "ETH"]
+
+
+def mirror(df):
+    """The price series upside down (1/price): a falling market becomes a rising one, so the long
+    strategies find short setups on it. High and low swap places."""
+    return pd.DataFrame({"open": 1 / df.open, "high": 1 / df.low, "low": 1 / df.high,
+                         "close": 1 / df.close, "volume": df.volume}, index=df.index)
+
+
+def base(sym):
+    """The real market behind a symbol: "-SPY" -> "SPY"."""
+    return sym.lstrip("-")
+
+
+def side(sym):
+    return "short" if sym.startswith("-") else "long"
 
 
 def strategy(name):
