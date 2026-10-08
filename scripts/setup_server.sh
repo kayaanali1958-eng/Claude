@@ -15,6 +15,12 @@ if ! command -v node >/dev/null || [ "$(node -v | cut -c2- | cut -d. -f1)" -lt 1
   sudo apt-get install -y -qq nodejs >/dev/null
 fi
 
+if [ "$(awk '/MemTotal/ {print $2}' /proc/meminfo)" -lt 2000000 ] && [ ! -f /swapfile ]; then
+  echo "== Small server (free tier): adding 2 GB of swap so the daily backtests fit in memory"
+  sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile >/dev/null && sudo swapon /swapfile
+  echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null
+fi
+
 echo "== Installing Claude Code (places the live orders through the Robinhood connector)"
 sudo npm install -g @anthropic-ai/claude-code >/dev/null
 
