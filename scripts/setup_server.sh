@@ -9,7 +9,7 @@ DESK="$HOME/trading-desk"
 
 echo "== Installing system packages"
 sudo apt-get update -qq
-sudo apt-get install -y -qq git python3 python3-venv python3-pip curl psmisc ca-certificates >/dev/null
+sudo apt-get install -y -qq git python3 python3-venv python3-pip curl psmisc ca-certificates cron >/dev/null
 if ! command -v node >/dev/null || [ "$(node -v | cut -c2- | cut -d. -f1)" -lt 18 ]; then
   curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - >/dev/null
   sudo apt-get install -y -qq nodejs >/dev/null
@@ -44,6 +44,7 @@ sudo ufw allow OpenSSH >/dev/null
 sudo ufw --force enable >/dev/null
 
 echo "== Timer: the desk every 5 minutes (same as the laptop's ClaudeCryptoDesk task)"
+sudo systemctl enable --now cron >/dev/null 2>&1 || true
 LINE="*/5 * * * * cd $DESK && PATH=/usr/local/bin:/usr/bin:/bin .venv/bin/python scripts/crypto_desk.py >> logs/crypto_desk.log 2>&1 # trading-desk"
 ( crontab -l 2>/dev/null | grep -v '# trading-desk' ; echo "$LINE" ) | crontab -
 
