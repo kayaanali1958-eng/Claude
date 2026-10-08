@@ -32,6 +32,11 @@ sed -i 's/^CRYPTO_MODE: .*/CRYPTO_MODE: live/' settings.md
 touch .env
 mkdir -p logs
 
+echo "== Firewall: only SSH open, so the dashboard (port 8765) is not public"
+sudo apt-get install -y -qq ufw >/dev/null
+sudo ufw allow OpenSSH >/dev/null
+sudo ufw --force enable >/dev/null
+
 echo "== Timer: the desk every 5 minutes (same as the laptop's ClaudeCryptoDesk task)"
 LINE="*/5 * * * * cd $DESK && PATH=/usr/local/bin:/usr/bin:/bin .venv/bin/python scripts/crypto_desk.py >> logs/crypto_desk.log 2>&1 # trading-desk"
 ( crontab -l 2>/dev/null | grep -v '# trading-desk' ; echo "$LINE" ) | crontab -
@@ -53,6 +58,11 @@ cat <<'DONE'
 
  3) Turn OFF the laptop desk so the two never trade at the same time.
     On the laptop:   schtasks /Change /TN ClaudeCryptoDesk /DISABLE
+
+ Dashboard on your phone from anywhere (private): install the free Tailscale
+ app on your phone and run   curl -fsSL https://tailscale.com/install.sh | sh
+ then   sudo tailscale up   here, and open  http://<server-tailscale-ip>:8765
+ (allow it once with:  sudo ufw allow in on tailscale0 to any port 8765)
 
  Check it any time:   tail -n 5 ~/trading-desk/logs/crypto_desk.log
  Turn it off:         crontab -l | grep -v '# trading-desk' | crontab -
