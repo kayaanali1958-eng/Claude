@@ -854,8 +854,9 @@ def run():
             sync_balance(st, today, force=True)
         STATE.write_text(json.dumps(st, indent=2, default=str), encoding="utf-8")
         update_after_save(st)
-        if st["positions"]:
-            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')}  {'LIVE' if LIVE else 'paper'}  managed {len(st['positions'])} open position(s)")
+        n = len(st["positions"])
+        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')}  {'LIVE' if LIVE else 'paper'}  "
+              + (f"managed {n} open position(s)" if n else "checked: no open trade (next market scan at the top of the hour)"))
         return
     sync_balance(st, today)
     # The AI-infrastructure paper portfolio rides on this timer; it acts once per weekday after 4 PM ET.
