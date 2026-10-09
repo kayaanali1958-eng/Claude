@@ -49,8 +49,10 @@ def _run_once(task, tools):
               f"End your answer with exactly one line: RESULT: <json>. On any problem, return "
               f'RESULT: {{"ok": false, "error": "<what happened>"}}.')
     try:
+        # A small cloud server connects to the Robinhood connector slowly; the default wait can give up first.
+        env = {**os.environ, "MCP_TIMEOUT": os.environ.get("MCP_TIMEOUT", "90000")}
         out = subprocess.run([_claude(), "-p", prompt, "--allowedTools", *allowed, "--permission-mode", "dontAsk"],
-                             capture_output=True, text=True, timeout=600).stdout
+                             capture_output=True, text=True, timeout=600, env=env).stdout
     except Exception as e:
         return {"ok": False, "error": f"claude call failed: {e}"}
     m = re.findall(r"RESULT:\s*(\{.*\})", out)
