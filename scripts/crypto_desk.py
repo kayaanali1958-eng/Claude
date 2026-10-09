@@ -175,12 +175,28 @@ def fetch_stock(sym):
     return df
 
 
+def rebuild_in_background(playbook, script, label):
+    """Start the daily rebuild without waiting for it (it takes 10-30 minutes on a small server); the
+    desk keeps trading on the current playbook meanwhile. Tried again after 2 hours if it never finished."""
+    if playbook.exists() and time.time() - playbook.stat().st_mtime <= 86400:
+        return
+    mark = ROOT / "news" / f"rebuilding_{script}.txt"
+    if mark.exists() and time.time() - mark.stat().st_mtime < 7200:
+        return
+    mark.parent.mkdir(exist_ok=True)
+    mark.write_text(datetime.now(timezone.utc).isoformat())
+    log(f"Rebuilding {label} playbook (daily, in the background)")
+    kw = dict(cwd=ROOT, stdout=open(ROOT / "logs" / f"{script}.log", "a", encoding="utf-8"), stderr=subprocess.STDOUT)
+    if os.name == "nt":
+        kw["creationflags"] = 0x00000008 | 0x00000200
+    else:
+        kw["start_new_session"] = True
+    subprocess.Popen([sys.executable, str(ROOT / "scripts" / f"{script}.py")], **kw)
+
+
 def refresh_stock_playbook():
     """Stock rules for the 3x funds, rebuilt daily; empty (no stock trades) unless its replay passed."""
-    if not STOCK_PLAYBOOK.exists() or time.time() - STOCK_PLAYBOOK.stat().st_mtime > 86400:
-        log("Rebuilding stock playbook (daily)")
-        subprocess.run([sys.executable, str(ROOT / "scripts" / "backtest_stocks.py")], cwd=ROOT,
-                       stdout=open(ROOT / "logs" / "backtest_stocks.log", "a", encoding="utf-8"), stderr=subprocess.STDOUT)
+    rebuild_in_background(STOCK_PLAYBOOK, "backtest_stocks", "stock")
     try:
         pb = json.loads(STOCK_PLAYBOOK.read_text(encoding="utf-8"))
         if (os.environ.get("CRYPTO_GATE") or "").strip().lower() != "off" and pb["replay"][size_mode()]["profitable"] is not True:
@@ -191,14 +207,7 @@ def refresh_stock_playbook():
 
 
 def refresh_playbook():
-    stale = True
-    if PLAYBOOK.exists():
-        age = time.time() - PLAYBOOK.stat().st_mtime
-        stale = age > 86400                    # rebuild daily with the newest data
-    if stale:
-        log("Rebuilding crypto playbook (daily)")
-        subprocess.run([sys.executable, str(ROOT / "scripts" / "backtest_crypto.py")], cwd=ROOT,
-                       stdout=open(ROOT / "logs" / "backtest_crypto.log", "a", encoding="utf-8"), stderr=subprocess.STDOUT)
+    rebuild_in_background(PLAYBOOK, "backtest_crypto", "crypto")
     return json.loads(PLAYBOOK.read_text(encoding="utf-8")).get("rules", []) if PLAYBOOK.exists() else []
 
 
@@ -798,7 +807,23 @@ def update_after_save(st):
         STATE.write_text(json.dumps(st, indent=2, default=str), encoding="utf-8")
 
 
+LOCK = ROOT / "logs" / "desk.lock"
+
+
 def main():
+    """One run at a time: on a small server an hourly run can take longer than the 5-minute timer."""
+    (ROOT / "logs").mkdir(exist_ok=True)
+    if LOCK.exists() and time.time() - LOCK.stat().st_mtime < 20 * 60:
+        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')}  previous run still going, skipped")
+        return
+    LOCK.write_text(str(os.getpid()))
+    try:
+        run()
+    finally:
+        LOCK.unlink(missing_ok=True)
+
+
+def run():
     for stream in (sys.stdout, sys.stderr):
         try:
             stream.reconfigure(encoding="utf-8", errors="replace")
