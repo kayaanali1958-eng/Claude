@@ -95,7 +95,7 @@ def close_fund(st, p, why):
             p["exit_pending"] = why
             log(f"{p['fund']} exit signal ({why}) on the day it was bought, but 3 day trades are already used "
                 f"this week: holding to the next open (the stop order on Robinhood still protects it)",
-                "Crypto LIVE: day-trade limit, holding overnight")
+                "Desk LIVE: day-trade limit, holding overnight")
         return False
     if not market_open():
         if p.get("exit_pending") != why:
@@ -105,7 +105,7 @@ def close_fund(st, p, why):
     if LIVE:
         res = crypto_live.sell_fund(p["fund"], p.get("fund_stop_order_id"), why)
         if not res.get("ok"):
-            log(f"LIVE exit FAILED on {p['fund']} ({why}): {res.get('error')} - will retry", "Crypto LIVE: exit failed, check app")
+            log(f"LIVE exit FAILED on {p['fund']} ({why}): {res.get('error')} - will retry", "Desk LIVE: exit failed, check app")
             return False
         px = float(res.get("avg_price") or fund_price(p["fund"]))
     else:
@@ -122,7 +122,7 @@ def close_fund(st, p, why):
     st["closed"].append(dict(p, exit=px, reason=why, pnl=round(pnl, 2), R=round(r, 2),
                              closed=datetime.now(timezone.utc).isoformat()))
     log(f"{'LIVE' if LIVE else 'PAPER'} SELL {p['fund_qty']} {p['fund']} ({what(p['coin'], p.get('lev', 2))}) @ {px:,.2f} ({why}) | "
-        f"P&L ${pnl:+.2f} ({r:+.2f}R) | {p['strategy']}", f"Crypto {'win' if pnl > 0 else 'loss'}: {p['fund']} ${pnl:+.2f}")
+        f"P&L ${pnl:+.2f} ({r:+.2f}R) | {p['strategy']}", f"Desk {'win' if pnl > 0 else 'loss'}: {p['fund']} ${pnl:+.2f}")
     return True
 
 
@@ -243,7 +243,7 @@ def manage(st, data):
             res = crypto_live.sell_all(p["coin"], p["stop_order_id"], why)
             if not res.get("ok"):
                 log(f"LIVE exit FAILED on {p['coin']} ({why}): {res.get('error')} — will retry next hour",
-                    "Crypto LIVE: exit failed, check app")
+                    "Desk LIVE: exit failed, check app")
                 continue
             exit_px = float(res.get("avg_price") or exit_px)
         if exit_px is not None:
@@ -256,7 +256,7 @@ def manage(st, data):
             st["sync_now"] = True
             st["closed"].append(dict(p, exit=exit_px, reason=why, pnl=round(pnl, 2), R=round(r, 2), closed=p["checked"]))
             log(f"{'LIVE' if LIVE else 'PAPER'} SELL {p['qty']:.6f} {p['coin']} @ {exit_px:,.4f} ({why}) · P&L ${pnl:+.2f} ({r:+.2f}R) · "
-                f"{p['strategy']}", f"Crypto {'win' if pnl > 0 else 'loss'}: {p['coin']} ${pnl:+.2f}")
+                f"{p['strategy']}", f"Desk {'win' if pnl > 0 else 'loss'}: {p['coin']} ${pnl:+.2f}")
 
 
 GOAL = 2000
@@ -298,7 +298,7 @@ def sync_balance(st, today, force=False):
     try:
         cash = float(res.get("cash"))
     except (TypeError, ValueError):
-        log(f"Balance check failed: {res.get('error') or res}", "Crypto LIVE: balance check failed")
+        log(f"Balance check failed: {res.get('error') or res}", "Desk LIVE: balance check failed")
         return
     st["balance_date"], st["balance_checked"] = today, time.time()
     milestones(st, res.get("total"))
@@ -317,14 +317,14 @@ def sync_balance(st, today, force=False):
                 st["closed"].append(dict(p, exit=None, reason="closed outside the desk", pnl=None, R=None,
                                          closed=datetime.now(timezone.utc).isoformat()))
                 log(f"{sym} is no longer in the account (sold in the app?): removed from the desk's open trades",
-                    f"Crypto desk: {sym} closed outside the desk")
+                    f"Desk: {sym} closed outside the desk")
     delta = round(cash - st["cash"], 2)
     if abs(delta) >= 0.01:
         st["cash"] = cash
         st["start"] = round(st["start"] + delta, 2)
         st["peak"] = round(st["peak"] + delta, 2)
         log(f"Book synced to the account: cash ${cash:.2f} ({'added' if delta > 0 else 'removed'} ${abs(delta):.2f})",
-            "Crypto desk: new money detected" if delta >= 5 else None)
+            "Desk: new money detected" if delta >= 5 else None)
 
 
 def risk_pct():
@@ -386,7 +386,7 @@ def push_live_stop(p):
         log(f"LIVE stop on {p['coin']} raised to {p['stop']:,.4f}")
     else:
         p["stop"] = p.get("live_stop", p["stop"])
-        log(f"LIVE stop move FAILED on {p['coin']}: {res.get('error')}", "Crypto LIVE: check stop")
+        log(f"LIVE stop move FAILED on {p['coin']}: {res.get('error')}", "Desk LIVE: check stop")
 
 
 def raise_live_stop(p):
@@ -442,7 +442,7 @@ def enter(st, coin, name, entry, stop, rule, sit, ts, eq):
             if not res.get("ok") or not res.get("filled_qty"):
                 if "spread too wide" in str(res.get("error")):
                     return "wait"
-                log(f"LIVE buy FAILED {fund}: {res.get('error')}", "Crypto LIVE: buy failed")
+                log(f"LIVE buy FAILED {fund}: {res.get('error')}", "Desk LIVE: buy failed")
                 return "skip"
             shares, fpx = int(float(res["filled_qty"])), float(res["avg_price"])
             live = dict(fund_stop_order_id=res.get("stop_order_id"), buy_order_id=res.get("buy_order_id"), live_stop=stop)
@@ -465,7 +465,7 @@ def enter(st, coin, name, entry, stop, rule, sit, ts, eq):
             if "spread too wide" in str(res.get("error")):
                 return "wait"
             quiet = "not filled" in str(res.get("error"))
-            log(f"LIVE buy skipped {coin}: {res.get('error')}", None if quiet else "Crypto LIVE: buy failed")
+            log(f"LIVE buy skipped {coin}: {res.get('error')}", None if quiet else "Desk LIVE: buy failed")
             return "skip"
         qty, entry = float(res["filled_qty"]), float(res["avg_price"])
         cost = qty * entry * (1 + cl.FEE)
@@ -473,7 +473,7 @@ def enter(st, coin, name, entry, stop, rule, sit, ts, eq):
         live = dict(stop_order_id=res.get("stop_order_id"), buy_order_id=res.get("buy_order_id"), live_stop=stop)
         if risk <= 0:                            # filled at or below the stop: exit right away
             crypto_live.sell_all(coin, live["stop_order_id"], "filled below stop")
-            log(f"LIVE {coin} filled at {entry} below stop {stop}: exited", "Crypto LIVE: bad fill, exited")
+            log(f"LIVE {coin} filled at {entry} below stop {stop}: exited", "Desk LIVE: bad fill, exited")
             return "skip"
     st["cash"] -= cost
     ex = rule["exit"]
@@ -487,7 +487,7 @@ def enter(st, coin, name, entry, stop, rule, sit, ts, eq):
     log(f"{'LIVE' if LIVE else 'PAPER'} BUY {qty:.6f} {coin} @ {entry:,.4f} · stop {stop:,.4f} · {goal} "
         f"({cl.exit_label(ex)}) · {name} · situation {w} · "
         f"rule unseen {rule['test']['avgR']:+.2f}R over {rule['test']['trades']}",
-        f"Crypto buy: {coin}")
+        f"Desk buy: {coin}")
     return "done"
 
 
@@ -603,8 +603,8 @@ def open_new(st, data, rules, stock_rules=None):
     if st["paused"] or (ROOT / "STOP").exists():
         return
     if LIVE and st["start"] <= 0:
-        log("CRYPTO_MODE is live but the book has no money: set CRYPTO_LIVE_MAX in .env (a dollar amount or all).",
-            "Crypto LIVE not configured")
+        log("Live mode but the desk sees $0 to trade: the account's cash read as $0 (money still in a position?), or CRYPTO_LIVE_MAX is missing in .env (a dollar amount or all).",
+            "Desk LIVE not configured")
         return
     lim = limits()
     if st["day"]["realized"] <= -lim["daily"] * st["start"]:
@@ -622,7 +622,7 @@ def open_new(st, data, rules, stock_rules=None):
             st["gate_logged"] = st["day"]["date"]
             log("No live trades today: the playbook lost money when the last months were replayed with this "
                 "sizing (see backtests/crypto_report_*.md). Checked again after each daily rebuild.",
-                "Crypto LIVE: on hold (strategy failed replay)")
+                "Desk LIVE: on hold (strategy failed replay)")
         return
     for coin, d in data.items():
         if len(st["positions"]) >= lim["max_open"] or any(cl.base(p["coin"]) == cl.base(coin) for p in st["positions"]) \
@@ -734,7 +734,7 @@ def quick_manage(st):
         if LIVE:
             res = crypto_live.sell_all(p["coin"], p["stop_order_id"], why)
             if not res.get("ok"):
-                log(f"LIVE exit FAILED on {p['coin']} ({why}): {res.get('error')} - will retry", "Crypto LIVE: exit failed, check app")
+                log(f"LIVE exit FAILED on {p['coin']} ({why}): {res.get('error')} - will retry", "Desk LIVE: exit failed, check app")
                 continue
             exit_px = float(res.get("avg_price") or exit_px)
         proceeds = p["qty"] * exit_px * (1 - cl.FEE)
@@ -747,7 +747,7 @@ def quick_manage(st):
         now = datetime.now(timezone.utc).isoformat()
         st["closed"].append(dict(p, exit=exit_px, reason=why, pnl=round(pnl, 2), R=round(r, 2), closed=now))
         log(f"{'LIVE' if LIVE else 'PAPER'} SELL {p['qty']:.6f} {p['coin']} @ {exit_px:,.4f} ({why}) | P&L ${pnl:+.2f} ({r:+.2f}R) | {p['strategy']}",
-            f"Crypto {'win' if pnl > 0 else 'loss'}: {p['coin']} ${pnl:+.2f}")
+            f"Desk {'win' if pnl > 0 else 'loss'}: {p['coin']} ${pnl:+.2f}")
 
 
 def ensure_dashboard():
@@ -838,7 +838,7 @@ def run():
         if st["day"]["date"]:
             closed = [c for c in st["closed"] if c["closed"][:10] == st["day"]["date"]]
             log(f"Day {st['day']['date']}: {len(closed)} trades, realized ${st['day']['realized']:+.2f}, cash ${st['cash']:.2f}",
-                "Crypto daily recap" if closed else None)
+                "Desk daily recap" if closed else None)
         st["day"] = dict(date=today, realized=0.0)
     try:
         ensure_dashboard()
@@ -906,7 +906,7 @@ def run():
     dd = limits()["drawdown"]
     if not st["paused"] and eq < st["peak"] * (1 - dd):
         st["paused"] = True
-        log(f"PAUSED: equity ${eq:.2f} is {dd:.0%} below peak ${st['peak']:.2f}. Review, then set paused=false.", "Crypto desk paused")
+        log(f"PAUSED: equity ${eq:.2f} is {dd:.0%} below peak ${st['peak']:.2f}. Review, then set paused=false.", "Desk paused")
     st["equity"] = round(eq, 2)
     hist = st.setdefault("history", [])                  # hourly account value, for the dashboard chart
     hist.append([datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ"), round(eq, 2)])

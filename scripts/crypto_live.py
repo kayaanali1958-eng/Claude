@@ -77,9 +77,10 @@ def sell_all(coin, stop_order_id, reason):
 
 
 def balance():
-    """The account's cash available for crypto, read only (no order tools)."""
-    return run("Report how much of the account's own cash can be spent on crypto right now, including deposits "
-               "Robinhood already lets the account use, but never margin or borrowed buying power (no leverage), and the account's total value (cash plus every stock, "
+    """The account's own cash (for the leveraged stock funds and any crypto), read only (no order tools)."""
+    return run("Report how much of the account's own cash can be spent on stocks and ETFs right now (the cash the "
+               "desk buys its leveraged funds like SPXS, SQQQ, SOXL, BITX with), including deposits Robinhood already "
+               "lets the account use, but never margin or borrowed buying power, and the account's total value (cash plus every stock, "
                "fund and crypto position). Do not place, preview or cancel anything. "
                "Also list what the account holds: every crypto position (coin code and quantity) and every stock or fund "
                "position (symbol and number of shares). "
