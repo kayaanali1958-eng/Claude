@@ -1,0 +1,19 @@
+logs/
+.desk.lock/
+STOP
+.env
+news/
+__pycache__/
+# runtime files written on the laptop (kept out of git so updates never conflict)
+desk_state.json
+journal.md
+lessons.md
+crypto_state.json
+crypto_journal.md
+backtests/
+crypto_live_state.json
+crypto_live_journal.md
+ai_portfolio_state.json
+ai_portfolio_journal.md
+futures_paper_state.json
+futures_paper_journal.md
