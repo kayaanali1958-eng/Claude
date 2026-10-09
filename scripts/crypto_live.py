@@ -7,7 +7,7 @@ must end its answer with one line:  RESULT: {json}
 Every live buy is followed immediately by a real stop order on Robinhood (good till canceled), so the
 loss is capped by Robinhood itself even if the laptop is off. Exits cancel that stop and sell at market.
 """
-import json, os, re, shutil, subprocess, uuid
+import json, os, re, shutil, subprocess, time, uuid
 
 TOOLS = ["get_accounts", "get_portfolio", "get_crypto_quotes", "get_crypto_positions", "get_crypto_orders",
          "preview_crypto_order", "place_crypto_order", "cancel_crypto_order"]
@@ -21,9 +21,29 @@ def _claude():
     return os.environ.get("CLAUDE_BIN") or shutil.which("claude") or "claude"
 
 
-def run(task, tools=TOOLS):
-    allowed = [p + t for p in PREFIXES for t in tools]
-    prompt = (f"You are the crypto execution step of a trading desk. Do exactly this task and nothing else.\n"
+NO_TOOLS = re.compile(r"not (available|authorized|connected|loaded)|no robinhood|unavailable|cannot call", re.I)
+
+
+def run(task, tools=TOOLS, tries=3):
+    """One headless Claude call. On a server started by the timer, the Robinhood connector (from the Claude
+    account) can still be loading when Claude starts, so a "tools not available" answer is retried:
+    nothing was placed in that case."""
+    for attempt in range(tries):
+        res = _run_once(task, tools)
+        text = str(res.get("error", "")) + str(res.get("raw", ""))
+        if res.get("ok") or not NO_TOOLS.search(text) or re.search(r"order_id|filled|placed an? ", text, re.I):
+            return res                                   # never retry anything that may have placed an order
+        time.sleep(20 * (attempt + 1))
+    return res
+
+
+def _run_once(task, tools):
+    allowed = [p + t for p in PREFIXES for t in tools] + ["ToolSearch"]
+    names = ",".join(PREFIXES[2] + t for t in tools)
+    prompt = (f"You are the execution step of a trading desk. Do exactly this task and nothing else.\n"
+              f"The Robinhood tools may not be loaded yet: if you don't see them, first call ToolSearch with "
+              f"query \"select:{names}\" (or the query \"robinhood\"), wait for it, then use them. Only say the tools "
+              f"are unavailable after that search found nothing.\n"
               f"{ACCOUNT}\nAlways call preview_crypto_order before place_crypto_order and abort if the preview shows "
               f"any error or warning, or a price more than 1% away from the one given.\nTASK: {task}\n"
               f"End your answer with exactly one line: RESULT: <json>. On any problem, return "
