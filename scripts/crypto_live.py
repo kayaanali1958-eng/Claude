@@ -33,7 +33,8 @@ def run(task, tools=TOOLS, tries=4):
         text = str(res.get("error", "")) + str(res.get("raw", ""))
         if res.get("ok") or not NO_TOOLS.search(text) or re.search(r"order_id|filled|placed an? ", text, re.I):
             return res                                   # never retry anything that may have placed an order
-        _debug_mcp(text)
+        if attempt == 0:
+            _debug_mcp(text)
         time.sleep(30 * (attempt + 1))
     return res
 

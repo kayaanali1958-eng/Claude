@@ -817,7 +817,7 @@ LOCK = ROOT / "logs" / "desk.lock"
 def main():
     """One run at a time: on a small server an hourly run can take longer than the 5-minute timer."""
     (ROOT / "logs").mkdir(exist_ok=True)
-    if LOCK.exists() and time.time() - LOCK.stat().st_mtime < 20 * 60:
+    if LOCK.exists() and time.time() - LOCK.stat().st_mtime < 40 * 60:
         print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')}  previous run still going, skipped")
         return
     LOCK.write_text(str(os.getpid()))
