@@ -863,12 +863,6 @@ def run():
               + (f"managed {n} open position(s)" if n else "checked: no open trade (next market scan at the top of the hour)"))
         return
     sync_balance(st, today)
-    # The AI-infrastructure paper portfolio rides on this timer; it acts once per weekday after 4 PM ET.
-    subprocess.run([sys.executable, str(ROOT / "scripts" / "ai_portfolio.py")], cwd=ROOT,
-                   stdout=open(ROOT / "logs" / "ai_portfolio.log", "a", encoding="utf-8"), stderr=subprocess.STDOUT)
-    # Futures practice account (paper only, for the plan after $2,000), also hourly on this timer.
-    subprocess.run([sys.executable, str(ROOT / "scripts" / "futures_paper.py")], cwd=ROOT,
-                   stdout=open(ROOT / "logs" / "futures_paper.log", "a", encoding="utf-8"), stderr=subprocess.STDOUT)
     rules = refresh_playbook()
     btc = fetch("BTC")
     btc_trend = cl.daily_trend_series(btc)
@@ -903,6 +897,13 @@ def run():
     if st.get("waiting"):
         retry_waiting(st)
     open_new(st, data, rules, stock_rules)
+    STATE.write_text(json.dumps(st, indent=2, default=str), encoding="utf-8")   # trades first, practice after
+    # The AI-infrastructure paper portfolio rides on this timer; it acts once per weekday after 4 PM ET.
+    subprocess.run([sys.executable, str(ROOT / "scripts" / "ai_portfolio.py")], cwd=ROOT,
+                   stdout=open(ROOT / "logs" / "ai_portfolio.log", "a", encoding="utf-8"), stderr=subprocess.STDOUT)
+    # Futures practice account (paper only, for the plan after $2,000), also hourly on this timer.
+    subprocess.run([sys.executable, str(ROOT / "scripts" / "futures_paper.py")], cwd=ROOT,
+                   stdout=open(ROOT / "logs" / "futures_paper.log", "a", encoding="utf-8"), stderr=subprocess.STDOUT)
     save_15m(COINS)
     prices = {c: float(d.close.iloc[-1]) for c, d in data.items()}
     eq = equity(st, prices)
