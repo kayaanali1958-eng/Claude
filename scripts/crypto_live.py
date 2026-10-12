@@ -24,7 +24,7 @@ def _claude():
 NO_TOOLS = re.compile(r"not (available|authorized|connected|loaded)|no robinhood|unavailable|cannot call", re.I)
 
 
-def run(task, tools=TOOLS, tries=3):
+def run(task, tools=TOOLS, tries=4):
     """One headless Claude call. On a server started by the timer, the Robinhood connector (from the Claude
     account) can still be loading when Claude starts, so a "tools not available" answer is retried:
     nothing was placed in that case."""
@@ -33,8 +33,24 @@ def run(task, tools=TOOLS, tries=3):
         text = str(res.get("error", "")) + str(res.get("raw", ""))
         if res.get("ok") or not NO_TOOLS.search(text) or re.search(r"order_id|filled|placed an? ", text, re.I):
             return res                                   # never retry anything that may have placed an order
-        time.sleep(20 * (attempt + 1))
+        _debug_mcp(text)
+        time.sleep(30 * (attempt + 1))
     return res
+
+
+def _debug_mcp(text):
+    """Save what Claude saw when the Robinhood tools were missing (logs/mcp_debug.log), to find the cause."""
+    from datetime import datetime, timezone
+    from pathlib import Path
+    log = Path(__file__).resolve().parent.parent / "logs" / "mcp_debug.log"
+    try:
+        env = {**os.environ, "MCP_TIMEOUT": os.environ.get("MCP_TIMEOUT", "90000")}
+        lst = subprocess.run([_claude(), "mcp", "list"], capture_output=True, text=True, timeout=300, env=env)
+        with log.open("a", encoding="utf-8") as f:
+            f.write(f"===== {datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC\nclaude said: {text[:400]}\n"
+                    f"claude mcp list:\n{lst.stdout}{lst.stderr}\n")
+    except Exception as e:
+        print(f"mcp debug: {e}")
 
 
 def _run_once(task, tools):

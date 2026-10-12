@@ -298,8 +298,12 @@ def sync_balance(st, today, force=False):
     try:
         cash = float(res.get("cash"))
     except (TypeError, ValueError):
-        log(f"Balance check failed: {res.get('error') or res}", "Desk LIVE: balance check failed")
+        st["balance_fails"] = st.get("balance_fails", 0) + 1
+        # one miss is usually the connector loading slowly; alert only when it keeps failing
+        log(f"Balance check failed ({st['balance_fails']} in a row): {res.get('error') or res}",
+            "Desk LIVE: Robinhood connection keeps failing" if st["balance_fails"] in (3, 10) else None)
         return
+    st["balance_fails"] = 0
     st["balance_date"], st["balance_checked"] = today, time.time()
     milestones(st, res.get("total"))
     held = res.get("holdings")
