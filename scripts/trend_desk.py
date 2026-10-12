@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""Trend desk: holds TQQQ (3x Nasdaq-100) while the Nasdaq-100 (QQQ) is above its 200-day average, and cash
-when it is below. Checked once each trading day near the close (15:40-15:58 ET), so it acts on
-(almost) the day's closing price like the test did.
+"""Adaptive Nasdaq desk: reads the market once each trading day near the close (15:40-15:58 ET) and holds
+whatever fits it, with all the cash:
+  - uptrend (QQQ above its 200-day average) and calm (20-day volatility under 25% a year): TQQQ, 3x
+  - uptrend but wild: QQQ, 1x (the swings would eat a 3x fund)
+  - downtrend: cash, except buying panic dips (2-day RSI under 10) in QQQ 1x, sold when RSI is over 70
 
-Why this and not the hourly setups: replayed the way the desk really trades (leverage, market hours,
-gaps, costs) on months they never learned from, the hourly setups lost money (-17% over 7 months).
-This rule has no settings to fit. Test 2010-2026 with fund costs: about +26% a year vs +20% for just
-holding QQQ, but with a worst drop of 58% and losing years (2011 -39%, 2022 -45%). About 3 trades a year.
+Why: the hourly setups lost money when replayed the way the desk really trades (-17% over 7 months).
+This rule was chosen on 2010-2018 (+20%/yr) and then checked on 2019-2026, which it never saw: +42%/yr
+vs +23% for holding QQQ, worst drop -47% (losing years: 2011 -26%, 2022 -33%). Shorting the Nasdaq in
+downtrends was tested and lost money, so it never shorts. About 12 switches a year.
 
 Called by crypto_desk.py on every 5-minute run (it does nothing outside the window). Live when
-settings.md says CRYPTO_MODE: live and DESK_STRATEGY=trend is in .env (the owner chose the hourly
-setups for now, so it is off by default).
+settings.md says CRYPTO_MODE: live, unless DESK_STRATEGY=hourly is in .env; paper otherwise.
 State: trend_state.json; log: the desk's journal; phone alerts through notify.py.
 """
 import json, os
@@ -28,11 +29,13 @@ ROOT = Path(__file__).resolve().parent.parent
 STATE = ROOT / "trend_state.json"
 ET = ZoneInfo("America/New_York")
 SIGNAL, FUND, SMA = "QQQ", "TQQQ", 200
+CALM_VOL = 0.25
+FUNDS = ("TQQQ", "QQQ")
 WINDOW = (940, 959)          # 15:40-15:58 ET, minutes after midnight
 
 
 def enabled():
-    return (os.environ.get("DESK_STRATEGY") or "hourly").strip().lower() == "trend"
+    return (os.environ.get("DESK_STRATEGY") or "adaptive").strip().lower() in ("adaptive", "trend")
 
 
 def _closes(sym):
@@ -50,28 +53,43 @@ def _last(sym):
     return float(c.iloc[-1]), c.index[-1].to_pydatetime()
 
 
-def signal():
-    """(above, price, sma): today's price vs the 200-day average of the last 199 closes plus today."""
+def signal(dip=False):
+    """What to hold now: (target, why, price, sma, when, dip). Today's price stands in for today's close."""
     closes = _closes(SIGNAL)
     price, when = _last(SIGNAL)
     today = datetime.now(ET).date()
-    past = closes[closes.index.date < today]
-    sma = (past.iloc[-(SMA - 1):].sum() + price) / SMA
-    return price > sma, price, sma, when
+    c = pd.concat([closes[closes.index.date < today], pd.Series([price], index=[pd.Timestamp(today)])])
+    sma = c.iloc[-SMA:].mean()
+    vol = c.pct_change().iloc[-20:].std() * (252 ** 0.5)
+    d = c.diff()
+    up, dn = d.clip(lower=0).ewm(alpha=0.5).mean(), (-d.clip(upper=0)).ewm(alpha=0.5).mean()
+    rsi2 = float((100 - 100 / (1 + up / dn)).iloc[-1])
+    if price > sma:
+        dip = False
+        target, why = ("TQQQ", f"uptrend and calm (volatility {vol:.0%})") if vol < CALM_VOL else \
+                      ("QQQ", f"uptrend but wild (volatility {vol:.0%}): 1x")
+    else:
+        if not dip and rsi2 < 10:
+            dip = True
+        elif dip and rsi2 > 70:
+            dip = False
+        target, why = ("QQQ", f"downtrend, buying a panic dip (RSI2 {rsi2:.0f})") if dip else \
+                      ("CASH", f"downtrend (RSI2 {rsi2:.0f}): cash")
+    return target, why, price, sma, when, dip
 
 
 def check(live, log):
-    """Once per trading day near the close: hold TQQQ above the average, cash below it."""
+    """Once per trading day near the close: hold what fits the market (TQQQ, QQQ or cash)."""
     now = datetime.now(ET)
     m = now.hour * 60 + now.minute
     if now.weekday() >= 5 or not WINDOW[0] <= m < WINDOW[1]:
         return
     st = json.loads(STATE.read_text(encoding="utf-8")) if STATE.exists() else \
-        dict(done="", holding=False, shares=0.0, entry=None, cash=1000.0, history=[])
+        dict(done="", symbol=None, shares=0.0, entry=None, cash=1000.0, dip=False, history=[])
     if st.get("done") == now.date().isoformat():
         return
     try:
-        above, price, sma, when = signal()
+        target, why, price, sma, when, dip = signal(st.get("dip", False))
     except Exception as e:
         print(f"trend signal: {e}")
         return
@@ -79,64 +97,67 @@ def check(live, log):
         st["done"] = now.date().isoformat()                 # no fresh prices: market holiday
         STATE.write_text(json.dumps(st, indent=2), encoding="utf-8")
         return
-    gap = (price / sma - 1) * 100
     if live:
         bal = crypto_live.balance()
         try:
             cash = float(bal["cash"])
-            held = float((bal.get("holdings") or {}).get(FUND, 0) or 0)
+            held = {f: float((bal.get("holdings") or {}).get(f, 0) or 0) for f in FUNDS}
         except (KeyError, TypeError, ValueError):
-            log(f"Trend check: balance unavailable ({bal.get('error')}), trying again in 5 minutes")
+            log(f"Adaptive check: balance unavailable ({bal.get('error')}), trying again in 5 minutes")
             return
     else:
-        cash, held = st["cash"], st["shares"]
-    fpx = _last(FUND)[0]
-    if above and held <= 0 and cash >= 5:
+        cash, held = st["cash"], {f: (st["shares"] if st.get("symbol") == f else 0.0) for f in FUNDS}
+    tag = "LIVE" if live else "PAPER"
+    for f, qty in held.items():                             # sell what no longer fits the market
+        if qty > 0 and f != target:
+            fpx = _last(f)[0]
+            if live:
+                res = crypto_live.sell_fund(f, f"(any open {f} sell order)", f"market changed: {why}")
+                if not res.get("ok"):
+                    log(f"Adaptive SELL {f} failed: {res.get('error')} (retrying in 5 minutes)", "Desk: sell failed, check app")
+                    return
+                fill = float(res.get("avg_price") or fpx)
+                cash += qty * fill
+            else:
+                fill = fpx
+                cash = qty * fill
+                st.update(cash=cash, shares=0.0, symbol=None)
+            entry = st.get("entry") if st.get("symbol") == f else None
+            pnl = (fill - entry) * qty if entry else 0.0
+            st["history"].append(dict(date=now.date().isoformat(), action="sell", symbol=f, price=fill, pnl=round(pnl, 2)))
+            st.update(symbol=None, shares=0.0, entry=None)
+            log(f"{tag} SELL {qty:.4f} {f} @ {fill:.2f} (P&L ${pnl:+.2f}): {why}.", f"Desk sell: {f} ${pnl:+.2f}")
+            held[f] = 0.0
+    if target != "CASH" and held.get(target, 0) <= 0 and cash >= 5:
+        fpx = _last(target)[0]
         if live:
             res = crypto_live.run(
                 f"Stock order, not crypto (use review_equity_order before place_equity_order, never the crypto tools). "
-                f"Buy {FUND} with all of the account's spendable cash (${cash:.2f}, minus $0.50 for rounding): a "
-                f"dollar-based market BUY during regular hours. First get_equity_quotes {FUND}: if the ask is more "
-                f"than 0.5% above {fpx:.2f}, don't buy and return ok false with error 'price moved'. Wait for the fill. "
-                f"RESULT keys: ok, filled_qty, avg_price, buy_order_id.",
+                f"Buy {target} with all of the account's spendable cash (check get_portfolio buying power, minus $0.50 "
+                f"for rounding): a dollar-based market BUY during regular hours. First get_equity_quotes {target}: if the "
+                f"ask is more than 0.5% above {fpx:.2f}, don't buy and return ok false with error 'price moved'. Wait for "
+                f"the fill. RESULT keys: ok, filled_qty, avg_price, buy_order_id.",
                 tools=crypto_live.FUND_TOOLS)
             if not res.get("ok"):
-                log(f"Trend BUY {FUND} failed: {res.get('error')} (retrying in 5 minutes)", "Desk: trend buy failed")
+                log(f"Adaptive BUY {target} failed: {res.get('error')} (retrying in 5 minutes)", "Desk: buy failed")
                 return
             shares, fill = float(res.get("filled_qty") or 0), float(res.get("avg_price") or fpx)
         else:
             shares, fill = cash / fpx, fpx
             st["cash"] = 0.0
-        st.update(holding=True, shares=shares, entry=fill)
-        st["history"].append(dict(date=now.date().isoformat(), action="buy", price=fill, shares=shares))
-        log(f"{'LIVE' if live else 'PAPER'} TREND BUY {shares:.4f} {FUND} @ {fill:.2f}: Nasdaq {price:.2f} is "
-            f"{gap:+.1f}% vs its 200-day average {sma:.2f}. Holding while the trend is up.",
-            f"Desk buy: {FUND} (Nasdaq uptrend)")
-    elif not above and held > 0:
-        if live:
-            res = crypto_live.sell_fund(FUND, f"(any open {FUND} sell order)", "Nasdaq closed below its 200-day average")
-            if not res.get("ok"):
-                log(f"Trend SELL {FUND} failed: {res.get('error')} (retrying in 5 minutes)", "Desk: trend sell failed, check app")
-                return
-            fill = float(res.get("avg_price") or fpx)
-        else:
-            fill = fpx
-            st["cash"] = st["shares"] * fill
-        pnl = (fill - (st.get("entry") or fill)) * held
-        st.update(holding=False, shares=0.0, entry=None)
-        st["history"].append(dict(date=now.date().isoformat(), action="sell", price=fill, pnl=round(pnl, 2)))
-        log(f"{'LIVE' if live else 'PAPER'} TREND SELL {held:.4f} {FUND} @ {fill:.2f} (P&L ${pnl:+.2f}): Nasdaq "
-            f"{price:.2f} fell {gap:+.1f}% vs its 200-day average {sma:.2f}. In cash until the trend turns up.",
-            f"Desk sell: {FUND} ${pnl:+.2f}")
-    else:
-        what = f"holding {FUND}" if held > 0 else "in cash"
-        print(f"trend check: Nasdaq {gap:+.1f}% vs 200-day average, {what}, no change")
+        st.update(symbol=target, shares=shares, entry=fill)
+        st["history"].append(dict(date=now.date().isoformat(), action="buy", symbol=target, price=fill, shares=shares))
+        log(f"{tag} BUY {shares:.4f} {target} @ {fill:.2f}: Nasdaq {price:.2f} vs 200-day {sma:.2f}, {why}.",
+            f"Desk buy: {target} ({why.split(' (')[0]})")
+    elif target == "CASH" or held.get(target, 0) > 0:
+        print(f"adaptive check: {why}; holding {target}, no change")
+    st["dip"] = dip
     st["done"] = now.date().isoformat()
-    st["last"] = dict(date=now.date().isoformat(), price=round(price, 2), sma=round(sma, 2), above=bool(above))
+    st["last"] = dict(date=now.date().isoformat(), price=round(price, 2), sma=round(sma, 2), target=target, why=why)
     STATE.write_text(json.dumps(st, indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":
     notify.load_env()
-    a, p, s, w = signal()
-    print(f"Nasdaq (QQQ) {p:.2f} vs 200-day average {s:.2f}: {'ABOVE: hold TQQQ' if a else 'BELOW: cash'}")
+    t, why, p, s, w, _ = signal()
+    print(f"Nasdaq (QQQ) {p:.2f} vs 200-day average {s:.2f}: {why} -> hold {t}")
