@@ -128,7 +128,8 @@ def check(live, log):
             st.update(symbol=None, shares=0.0, entry=None)
             log(f"{tag} SELL {qty:.4f} {f} @ {fill:.2f} (P&L ${pnl:+.2f}): {why}.", f"Desk sell: {f} ${pnl:+.2f}")
             held[f] = 0.0
-    if target != "CASH" and held.get(target, 0) <= 0 and cash >= 5:
+    adding = held.get(target, 0) > 0                         # new deposit while already holding: invest it too
+    if target != "CASH" and ((not adding and cash >= 5) or (adding and cash >= 20)):
         fpx = _last(target)[0]
         if live:
             res = crypto_live.run(
@@ -145,10 +146,16 @@ def check(live, log):
         else:
             shares, fill = cash / fpx, fpx
             st["cash"] = 0.0
-        st.update(symbol=target, shares=shares, entry=fill)
-        st["history"].append(dict(date=now.date().isoformat(), action="buy", symbol=target, price=fill, shares=shares))
-        log(f"{tag} BUY {shares:.4f} {target} @ {fill:.2f}: Nasdaq {price:.2f} vs 200-day {sma:.2f}, {why}.",
-            f"Desk buy: {target} ({why.split(' (')[0]})")
+        if adding and st.get("symbol") == target and st.get("entry"):     # average cost of old + new shares
+            old = held[target]
+            fill_avg = (st["entry"] * old + fill * shares) / (old + shares)
+            st.update(shares=old + shares, entry=fill_avg)
+        else:
+            st.update(symbol=target, shares=shares + held.get(target, 0), entry=fill)
+        st["history"].append(dict(date=now.date().isoformat(), action="add" if adding else "buy", symbol=target,
+                                  price=fill, shares=shares))
+        log(f"{tag} {'ADD (new deposit)' if adding else 'BUY'} {shares:.4f} {target} @ {fill:.2f}: Nasdaq {price:.2f} "
+            f"vs 200-day {sma:.2f}, {why}.", f"Desk {'added' if adding else 'buy'}: {target} ({why.split(' (')[0]})")
     elif target == "CASH" or held.get(target, 0) > 0:
         print(f"adaptive check: {why}; holding {target}, no change")
     st["dip"] = dip
