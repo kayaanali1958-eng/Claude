@@ -9,7 +9,8 @@ This rule has no settings to fit. Test 2010-2026 with fund costs: about +26% a y
 holding QQQ, but with a worst drop of 58% and losing years (2011 -39%, 2022 -45%). About 3 trades a year.
 
 Called by crypto_desk.py on every 5-minute run (it does nothing outside the window). Live when
-settings.md says CRYPTO_MODE: live and DESK_STRATEGY in .env is empty or "trend"; paper otherwise.
+settings.md says CRYPTO_MODE: live and DESK_STRATEGY=trend is in .env (the owner chose the hourly
+setups for now, so it is off by default).
 State: trend_state.json; log: the desk's journal; phone alerts through notify.py.
 """
 import json, os
@@ -31,7 +32,7 @@ WINDOW = (940, 959)          # 15:40-15:58 ET, minutes after midnight
 
 
 def enabled():
-    return (os.environ.get("DESK_STRATEGY") or "trend").strip().lower() == "trend"
+    return (os.environ.get("DESK_STRATEGY") or "hourly").strip().lower() == "trend"
 
 
 def _closes(sym):
