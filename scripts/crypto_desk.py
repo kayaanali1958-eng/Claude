@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import crypto_lib as cl
 import crypto_live
 import notify
+import trend_desk
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -606,6 +607,8 @@ def open_new(st, data, rules, stock_rules=None):
     eq = equity(st, prices)
     if st["paused"] or (ROOT / "STOP").exists():
         return
+    if LIVE and trend_desk.enabled():
+        return          # real money follows the trend desk; the hourly setups lost money in the realistic replay
     if LIVE and st["start"] <= 0:
         log("Live mode but the desk sees $0 to trade: the account's cash read as $0 (money still in a position?), or CRYPTO_LIVE_MAX is missing in .env (a dollar amount or all).",
             "Desk LIVE not configured")
@@ -848,6 +851,11 @@ def run():
         ensure_dashboard()
     except Exception as e:
         print(f"dashboard: {e}")
+    if not (ROOT / "STOP").exists() and trend_desk.enabled():
+        try:
+            trend_desk.check(LIVE, log)              # near the close: TQQQ above the 200-day average, cash below
+        except Exception as e:
+            log(f"Trend check error: {e}")
     hourly = "--full" in sys.argv or "--sync" in sys.argv or datetime.now().minute < 5
     if not hourly:                                   # 5-minute check: open positions and waiting entries
         if st["positions"]:
