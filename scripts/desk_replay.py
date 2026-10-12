@@ -165,6 +165,7 @@ def main():
     show("Live desk (as configured)", run(base))
     if "--variants" not in sys.argv:
         return
+    show("S&P + Nasdaq only (SPYU/TQQQ, SPXS/SQQQ)", run([e for e in base if e[2] in ("SPY", "QQQ", "-SPY", "-QQQ")]))
     show("Longs only", run([e for e in base if not e[2].startswith("-")]))
     show("Stock funds only", run([e for e in base if e[2] in ("SPY", "QQQ", "SMH", "-SPY", "-QQQ", "-SMH")]))
     show("Crypto funds only", run([e for e in base if e[2] not in ("SPY", "QQQ", "SMH", "-SPY", "-QQQ", "-SMH")]))
