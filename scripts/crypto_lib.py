@@ -1,0 +1,348 @@
+"""Shared crypto strategy library, situations and indicators (1-hour bars, UTC).
+
+Liquidity: stops and resting orders cluster just beyond obvious levels (prior-day high/low, the Asia
+session range, equal highs/lows). Price often runs those levels (a "sweep") and then reverses.
+T9-T11 trade that reversal; breakouts (T2, T6) trade the moves that don't reverse. T12-T15 are
+the ICT models: sweep then displacement (MSS), fair value gap and order block retests, and whale
+volume absorbing a sweep.
+
+Used by scripts/backtest_crypto.py (learning) and scripts/crypto_desk.py (paper trading), so the
+desk trades exactly what was tested.
+
+Shorts: a symbol starting with "-" (e.g. "-SPY") is the mirror image of the real one (every price
+turned upside down, 1/price), so every bullish strategy above becomes its bearish twin (a sweep of the
+prior-day HIGH, a bearish order block...) and the mirror's "up" trend is the real market's downtrend.
+The desk trades a short by BUYING an inverse fund (SPXS, SQQQ, SOXS, SBIT, ETHD): no margin needed.
+
+To add a strategy: write one more function with @strategy. The playbook decides where it works.
+"""
+import numpy as np
+import pandas as pd
+
+FEE = 0.002          # 0.2% per side: Robinhood's crypto spread is built into the price
+MAX_HOLD = 48        # hours, fixed-target exits
+MAX_HOLD_TRAIL = 168 # hours, trailing exits (let winners run up to a week)
+# Fixed targets, plus trailing exits: no target; once +1R, the stop follows the highest high
+# minus k x ATR, so a trend keeps running until price actually turns down by that much.
+EXITS = ([dict(target=t, be=b, trail=0) for t in (1.5, 2.0, 3.0) for b in (False, True)]
+         + [dict(target=0, be=True, trail=k) for k in (2.0, 3.0, 4.0)])
+
+
+def exit_key(ex):
+    return f"R_trail{ex['trail']}" if ex.get("trail") else f"R_{ex['target']}_{ex['be']}"
+
+
+def exit_label(ex):
+    if ex.get("trail"):
+        return f"trail {ex['trail']}xATR"
+    return f"{ex['target']}R" + (" +BE" if ex["be"] else "")
+
+
+def hold_hours(ex):
+    return MAX_HOLD_TRAIL if ex.get("trail") else MAX_HOLD
+
+
+def trail_stop(stop, entry, risk, high_water, atr, k):
+    """New stop for a trailing exit: breakeven at +1R, then highest high minus k x ATR. Never lowers."""
+    if high_water >= entry + risk:
+        stop = max(stop, entry, high_water - k * atr)
+    return stop
+STRATEGIES = {}
+# Trade filters (desk and replay): long-only crypto works best when the coin itself is in a daily
+# uptrend, and the ~0.4% round-trip cost eats too much of a tight stop, so the stop must be at
+# least MIN_STOP_PCT away. Tested 2024-26: positive in both halves only with both filters on.
+MIN_STOP_PCT = 0.015
+# Coins the desk trades. SOL and LINK are still learned from but not traded: in the 2024-26 replay
+# the desk did better without them in both halves of the data (LINK dragged results in both).
+TRADE_COINS = ["BTC", "ETH", "XRP", "DOGE", "AVAX", "LTC"]
+
+
+def tradeable(sit, entry, stop, min_stop=None):
+    return sit.get("trend") == "up" and (entry - stop) / entry >= (MIN_STOP_PCT if min_stop is None else min_stop)
+
+
+# Stock signals, traded only through 3x funds during market hours. Stock funds cost ~0.05% per side,
+# so a tighter stop is worth taking than on Robinhood coins.
+STOCK_SIGNALS = ["SPY", "QQQ", "SMH"]
+STOCK_MIN_STOP = 0.005
+STOCK_FEE = 0.0005
+
+
+# Shorts are learned and traded on these (inverse funds exist for them; see LEV_FUNDS in crypto_desk.py).
+SHORT_COINS = ["BTC", "ETH"]
+
+
+def mirror(df):
+    """The price series upside down (1/price): a falling market becomes a rising one, so the long
+    strategies find short setups on it. High and low swap places."""
+    return pd.DataFrame({"open": 1 / df.open, "high": 1 / df.low, "low": 1 / df.high,
+                         "close": 1 / df.close, "volume": df.volume}, index=df.index)
+
+
+def base(sym):
+    """The real market behind a symbol: "-SPY" -> "SPY"."""
+    return sym.lstrip("-")
+
+
+def side(sym):
+    return "short" if sym.startswith("-") else "long"
+
+
+def strategy(name):
+    def reg(fn):
+        STRATEGIES[name] = fn
+        return fn
+    return reg
+
+
+# ---------------- indicators ----------------
+def prepare(df, btc_daily_trend=None):
+    """df: hourly OHLCV indexed by UTC timestamps. Adds indicators and situation columns."""
+    df = df.copy()
+    c, h, l, v = df.close, df.high, df.low, df.volume
+    df["ema20"], df["ema50"] = c.ewm(span=20).mean(), c.ewm(span=50).mean()
+    tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
+    df["atr"] = tr.rolling(14).mean()
+    df["atr100"] = tr.rolling(100).mean()
+    delta = c.diff()
+    up, dn = delta.clip(lower=0).rolling(14).mean(), (-delta.clip(upper=0)).rolling(14).mean()
+    df["rsi"] = 100 - 100 / (1 + up / dn.replace(0, np.nan))
+    mid, sd = c.rolling(20).mean(), c.rolling(20).std()
+    df["bb_up"], df["bb_mid"], df["bb_lo"] = mid + 2 * sd, mid, mid - 2 * sd
+    df["bbw"] = (df.bb_up - df.bb_lo) / mid
+    df["hi24"], df["lo24"] = h.rolling(24).max().shift(), l.rolling(24).min().shift()
+    df["avgv"] = v.rolling(48).mean().shift()
+    day = df.index.floor("D")
+    tp = (h + l + c) / 3
+    df["vwap"] = (tp * v).groupby(day).cumsum() / v.groupby(day).cumsum()
+    # prior UTC day high/low (liquidity resting above/below)
+    dd = df.resample("1D").agg({"high": "max", "low": "min"}).dropna()      # trading days only (stocks skip weekends)
+    df["pdh"] = day.map(dd.high.shift(1))
+    df["pdl"] = day.map(dd.low.shift(1))
+    # equal lows: two swing lows within 0.1% of each other in the last 48 hours (stops cluster below)
+    swing = (l < l.shift(1)) & (l < l.shift(-1))
+    sl = l.where(swing.shift(1, fill_value=False)).ffill()        # last confirmed swing low
+    sl_prev = l.where(swing.shift(1, fill_value=False)).dropna().shift(1).reindex(df.index).ffill()
+    df["eq_low"] = np.where((sl - sl_prev).abs() / sl < 0.001, np.minimum(sl, sl_prev), np.nan)
+    # ICT building blocks: last confirmed swing high (structure), displacement candles (a large body
+    # on heavy volume = big market orders), and bullish fair value gaps (low[k] > high[k-2]).
+    sh = (h > h.shift(1)) & (h > h.shift(-1))
+    df["swing_hi"] = h.where(sh.shift(1, fill_value=False)).ffill()
+    df["disp"] = ((c - df.open) > 1.2 * df.atr) & (v > 2 * df.avgv)
+    df["fvg_lo"] = np.where(l > h.shift(2), h.shift(2), np.nan)       # gap between candle k-2's high
+    df["fvg_hi"] = np.where(l > h.shift(2), l, np.nan)                # and candle k's low
+    # Asia range (00-08 UTC) of the same day
+    asia = df[df.index.hour < 8]
+    df["asia_hi"] = day.map(asia.high.groupby(asia.index.floor("D")).max())
+    df["asia_lo"] = day.map(asia.low.groupby(asia.index.floor("D")).min())
+    # What the Asia session did (00-08 UTC): up / down / flat (1% either way). Known only once Asia has
+    # closed, so Asia-hour bars read "open" (no look-ahead). Lets the playbook learn patterns like
+    # "Asia pumped, then Europe/US sold it off".
+    a_ret = asia.close.groupby(asia.index.floor("D")).last() / asia.open.groupby(asia.index.floor("D")).first() - 1
+    a_dir = pd.Series(np.where(a_ret > 0.01, "up", np.where(a_ret < -0.01, "down", "flat")), index=a_ret.index)
+    df["asia"] = np.where(df.index.hour < 8, "open", day.map(a_dir).fillna("flat"))
+    # daily trend, known at the start of each day (yesterday's values)
+    d = df.resample("1D").agg({"close": "last"}).dropna()
+    d["s20"], d["s50"] = d.close.rolling(20).mean(), d.close.rolling(50).mean()
+    tr_d = np.where((d.close > d.s20) & (d.s20 > d.s50), "up", np.where((d.close < d.s20) & (d.s20 < d.s50), "down", "flat"))
+    d["trend"] = pd.Series(tr_d, index=d.index).shift(1)
+    df["trend"] = day.map(d.trend).fillna("flat")
+    # situation
+    ratio = df.atr / df.atr100
+    df["vol"] = np.where(ratio > 1.3, "high", np.where(ratio < 0.8, "low", "normal"))
+    hr = df.index.hour
+    df["session"] = np.where(hr < 8, "asia", np.where(hr < 13, "europe", np.where(hr < 21, "us", "late")))
+    df["weekend"] = np.where(df.index.dayofweek >= 5, "yes", "no")
+    df["btc"] = day.map(btc_daily_trend).fillna("flat") if btc_daily_trend is not None else df["trend"]
+    return df
+
+
+def daily_trend_series(df):
+    p = prepare(df)
+    return p.trend.groupby(p.index.floor("D")).first()
+
+
+# ---------------- strategies: fn(df, i) -> (entry, stop) or None, using bars up to i ----------------
+@strategy("T1 trend pullback to EMA20")
+def s_trend_pb(d, i):
+    r, p = d.iloc[i], d.iloc[i - 1]
+    if r.ema20 > r.ema50 and p.low <= p.ema20 and r.close > r.ema20 and r.close > p.high:
+        return r.close, min(p.low, r.close - 1.5 * r.atr)
+
+
+@strategy("T2 24h breakout on volume")
+def s_break24(d, i):
+    r = d.iloc[i]
+    if r.close > r.hi24 and r.volume > 1.5 * r.avgv and d.iloc[i - 1].close <= r.hi24:
+        return r.close, r.close - 1.5 * r.atr
+
+
+@strategy("T3 oversold bounce (RSI)")
+def s_rsi(d, i):
+    r, p = d.iloc[i], d.iloc[i - 1]
+    if p.rsi < 30 and r.close > p.high and r.close > r.open:
+        return r.close, min(p.low, r.low) - 0.2 * r.atr
+
+
+@strategy("T4 Bollinger squeeze breakout")
+def s_squeeze(d, i):
+    r = d.iloc[i]
+    w = d.bbw.iloc[i - 50:i]
+    if len(w) == 50 and d.bbw.iloc[i - 1] <= w.min() * 1.05 and r.close > r.bb_up:
+        return r.close, r.bb_mid
+
+
+@strategy("T5 VWAP reclaim in uptrend")
+def s_vwap(d, i):
+    r, p = d.iloc[i], d.iloc[i - 1]
+    if r.ema20 > r.ema50 and p.close < p.vwap and r.close > r.vwap:
+        return r.close, min(p.low, r.low) - 0.2 * r.atr
+
+
+@strategy("T6 Asia range breakout")
+def s_asia(d, i):
+    r = d.iloc[i]
+    if 8 <= d.index[i].hour < 16 and not np.isnan(r.asia_hi) and r.close > r.asia_hi and d.iloc[i - 1].close <= r.asia_hi:
+        return r.close, max((r.asia_hi + r.asia_lo) / 2, r.close - 2 * r.atr)
+
+
+@strategy("T7 volume spike momentum")
+def s_spike(d, i):
+    s, r = d.iloc[i - 1], d.iloc[i]
+    if s.close / s.open - 1 > 0.015 and s.volume > 3 * s.avgv and r.low > (s.open + s.close) / 2 and r.close > s.close:
+        return r.close, (s.open + s.close) / 2
+
+
+@strategy("T8 Bollinger lower-band reversal")
+def s_bb_rev(d, i):
+    r, p = d.iloc[i], d.iloc[i - 1]
+    if p.close < p.bb_lo and r.close > r.bb_lo and r.close > p.high:
+        return r.close, min(p.low, r.low) - 0.2 * r.atr
+
+
+@strategy("T9 sweep of prior-day low & reclaim")
+def s_sweep_pdl(d, i):
+    r, p = d.iloc[i], d.iloc[i - 1]
+    if np.isnan(r.pdl):
+        return
+    lo = d.low.iloc[max(0, i - 3):i + 1].min()
+    if lo < r.pdl and r.close > r.pdl and p.close <= r.pdl * 1.002:
+        return r.close, lo - 0.2 * r.atr
+
+
+@strategy("T10 Asia-low sweep in Europe/US & reclaim")
+def s_sweep_asia(d, i):
+    r = d.iloc[i]
+    if not 8 <= d.index[i].hour < 20 or np.isnan(r.asia_lo):
+        return
+    lo = d.low.iloc[max(0, i - 3):i + 1].min()
+    if lo < r.asia_lo and r.close > r.asia_lo and d.iloc[i - 1].close <= r.asia_lo * 1.002:
+        return r.close, lo - 0.2 * r.atr
+
+
+@strategy("T11 equal-lows sweep & reclaim")
+def s_sweep_eq(d, i):
+    r, p = d.iloc[i], d.iloc[i - 1]
+    lvl = p.eq_low
+    if np.isnan(lvl):
+        return
+    if r.low < lvl and r.close > lvl and r.close > r.open:
+        return r.close, r.low - 0.2 * r.atr
+
+
+def _swept(d, i, lookback):
+    """Lowest low of the last `lookback` bars if it ran a liquidity level (prior-day low, Asia low,
+    24h low, equal lows) and price closed back above that level; else None."""
+    w = d.iloc[max(0, i - lookback):i + 1]
+    lo = w.low.min()
+    r = d.iloc[i]
+    for lvl in (r.pdl, r.asia_lo, d.lo24.iloc[max(0, i - lookback)], d.eq_low.iloc[max(0, i - lookback)]):
+        if not np.isnan(lvl) and lo < lvl < r.close:
+            return lo
+    return None
+
+
+@strategy("T12 ICT sweep + displacement (market structure shift)")
+def s_ict_mss(d, i):
+    r = d.iloc[i]
+    if r.disp and r.close > d.swing_hi.iloc[i - 1]:              # big buy orders break structure
+        lo = _swept(d, i, 6)
+        if lo is not None:
+            return r.close, lo - 0.2 * r.atr
+
+
+@strategy("T13 ICT fair value gap retrace after sweep")
+def s_ict_fvg(d, i):
+    r = d.iloc[i]
+    for k in range(i - 1, max(i - 12, 2), -1):                   # the newest gap made by a displacement
+        if not np.isnan(d.fvg_lo.iloc[k]) and d.disp.iloc[k - 1]:
+            lo_gap, hi_gap = d.fvg_lo.iloc[k], d.fvg_hi.iloc[k]
+            if d.low.iloc[k + 1:i].min() <= hi_gap if k + 1 < i else False:
+                return                                           # gap already traded into: only the first touch
+            lo = _swept(d, k - 1, 6)
+            if lo is not None and r.low <= hi_gap and r.close > lo_gap and r.close > r.open:
+                return r.close, min(lo_gap - 0.2 * r.atr, r.low - 0.2 * r.atr)
+            return
+
+
+@strategy("T14 ICT order block retest")
+def s_ict_ob(d, i):
+    r = d.iloc[i]
+    for k in range(i - 2, max(i - 24, 1), -1):                   # newest displacement that broke structure
+        if d.disp.iloc[k] and d.close.iloc[k] > d.swing_hi.iloc[k - 1]:
+            ob = d.iloc[k - 1]                                   # order block: last down candle before it
+            if ob.close >= ob.open:
+                return
+            if d.low.iloc[k + 1:i].min() <= ob.high:
+                return                                           # first retest only
+            if r.low <= ob.high and r.close > ob.low and r.close > r.open:
+                return r.close, ob.low - 0.2 * r.atr
+            return
+
+
+@strategy("T15 whale absorption at a liquidity sweep")
+def s_whale(d, i):
+    r = d.iloc[i]
+    rng = r.high - r.low
+    if rng > 0 and r.volume > 3 * r.avgv and r.low < r.lo24 and r.close > r.lo24 and (r.close - r.low) / rng > 0.6:
+        return r.close, r.low - 0.2 * r.atr                      # huge volume swept the lows and got bought
+
+
+def signals_at(d, i):
+    """All strategies that fire on bar i: list of (name, entry, stop)."""
+    out = []
+    for name, fn in STRATEGIES.items():
+        try:
+            s = fn(d, i)
+        except (IndexError, KeyError):
+            s = None
+        if s and np.isfinite(s[0]) and np.isfinite(s[1]) and s[0] - s[1] > s[0] * 0.003:
+            out.append((name, float(s[0]), float(s[1])))
+    return out
+
+
+def situation(d, i):
+    r = d.iloc[i]
+    return dict(trend=r.trend, vol=r.vol, session=r.session, weekend=r.weekend, btc=r.btc, asia=r.asia)
+
+
+def simulate(d, i, entry, stop):
+    """R for every exit variant, walking forward from bar i+1 (fees included)."""
+    risk, res = entry - stop, {}
+    H, L, C, A = d.high.to_numpy(), d.low.to_numpy(), d.close.to_numpy(), d.atr.to_numpy()
+    for ex in EXITS:
+        end = min(len(d) - 1, i + hold_hours(ex))
+        tgt = entry + ex["target"] * risk if ex["target"] else np.inf
+        st, px, hw = stop, C[end], entry
+        for j in range(i + 1, end + 1):
+            if L[j] <= st:
+                px = st; break
+            if H[j] >= tgt:
+                px = tgt; break
+            hw = max(hw, H[j])                      # stop changes apply from the next bar
+            if ex["trail"]:
+                st = trail_stop(st, entry, risk, hw, A[j], ex["trail"])
+            elif ex["be"] and H[j] >= entry + risk:
+                st = max(st, entry)
+        res[exit_key(ex)] = (px - entry - FEE * (entry + px)) / risk
+    return res
